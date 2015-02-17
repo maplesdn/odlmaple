@@ -38,6 +38,10 @@ public class AddressObserverUsingArp implements ArpPacketListener {
    */
   @Override
   public void onArpPacketReceived(ArpPacketReceived packetReceived) {
+
+
+      System.out.println("\n\n\n ======= Andi and Xiao say hello!! ======== \n\n\n");
+
     if(packetReceived == null || packetReceived.getPacketChain() == null) {
       return;
     }
