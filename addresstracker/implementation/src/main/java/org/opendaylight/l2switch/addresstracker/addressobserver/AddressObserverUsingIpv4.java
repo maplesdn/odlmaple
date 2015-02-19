@@ -39,6 +39,7 @@ public class AddressObserverUsingIpv4 implements Ipv4PacketListener {
    */
   @Override
   public void onIpv4PacketReceived(Ipv4PacketReceived packetReceived) {
+
     if(packetReceived == null || packetReceived.getPacketChain() == null) {
       return;
     }
