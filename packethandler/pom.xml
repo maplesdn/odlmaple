@@ -21,4 +21,15 @@
     <module>implementation</module>
     <module>config</module>
   </modules>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.maple</groupId>
+        <artifactId>maple-core</artifactId>
+        <version>1</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
 </project>
