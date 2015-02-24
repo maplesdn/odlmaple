@@ -34,6 +34,8 @@ import org.opendaylight.yangtools.yang.binding.NotificationListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.maple.core.MapleSystem;
+
 /**
  * Ethernet Packet Decoder
  */
@@ -74,6 +76,11 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
         .setPacketInReason(packetReceived.getPacketInReason())
         .setPayloadOffset(0)
         .setPayloadLength(data.length);
+
+    // Pass all Ethernet frames to Maple.
+    MapleSystem ms = new MapleSystem();
+    ms.handlePacket(data);
+
     if(packetReceived.getMatch() != null ){
         rpb.setMatch(new MatchBuilder(packetReceived.getMatch()).build());
     }
