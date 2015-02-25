@@ -13,6 +13,12 @@
   <packaging>bundle</packaging>
 
   <dependencies>
+      <dependency>
+          <groupId>org.maple</groupId>
+          <artifactId>core</artifactId>
+          <version>1.0-SNAPSHOT</version>
+          <scope>compile</scope>
+      </dependency>
     <dependency>
       <groupId>org.opendaylight.l2switch.packethandler</groupId>
       <artifactId>packethandler-model</artifactId>

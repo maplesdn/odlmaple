@@ -87,6 +87,7 @@
         <artifactId>config-api</artifactId>
         <version>${config.version}</version>
       </dependency>
+
     </dependencies>
   </dependencyManagement>
 
