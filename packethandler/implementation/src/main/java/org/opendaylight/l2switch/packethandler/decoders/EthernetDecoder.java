@@ -77,8 +77,8 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
         .setPayloadLength(data.length);
 
     // Pass all Ethernet frames to Maple.
-    //MapleSystem ms = new MapleSystem();
-    //ms.handlePacket(data);
+    MapleSystem ms = new MapleSystem();
+    ms.handlePacket(data);
 
     if(packetReceived.getMatch() != null ){
         rpb.setMatch(new MatchBuilder(packetReceived.getMatch()).build());
