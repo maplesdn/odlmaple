@@ -78,6 +78,7 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
 
     // Pass all Ethernet frames to Maple.
     MapleSystem ms = new MapleSystem();
+    ms.init(null);
     ms.handlePacket(data);
 
     if(packetReceived.getMatch() != null ){
