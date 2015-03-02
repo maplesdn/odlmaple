@@ -9,6 +9,7 @@ package org.opendaylight.l2switch.packethandler.decoders;
 
 import java.util.ArrayList;
 
+import org.maple.core.Controller;
 import org.opendaylight.controller.sal.binding.api.NotificationProviderService;
 import org.opendaylight.l2switch.packethandler.decoders.utils.BitBufferHelper;
 import org.opendaylight.l2switch.packethandler.decoders.utils.BufferException;
@@ -45,8 +46,17 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
   public static final Integer ETHERTYPE_8021Q = 0x8100;
   public static final Integer ETHERTYPE_QINQ = 0x9100;
 
+  private Controller ODL;
+  private MapleSystem MS;
+
   public EthernetDecoder(NotificationProviderService notificationProviderService) {
     super(EthernetPacketReceived.class, notificationProviderService);
+    System.out.println("EthernetDecoder initiated");
+    this.MS = new MapleSystem();
+    System.out.println("Maple System initiated");
+    this.ODL = new ODLController();
+    System.out.println("ODL Adapter initiated");
+    this.MS.init(this.ODL);
   }
 
   @Override
@@ -77,9 +87,9 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
         .setPayloadLength(data.length);
 
     // Pass all Ethernet frames to Maple.
-    MapleSystem ms = new MapleSystem();
-    ms.init(null);
-    ms.handlePacket(data);
+    // MapleSystem ms = new MapleSystem();
+    // this.MS.init(null);
+    this.MS.handlePacket(data);
 
     if(packetReceived.getMatch() != null ){
         rpb.setMatch(new MatchBuilder(packetReceived.getMatch()).build());
