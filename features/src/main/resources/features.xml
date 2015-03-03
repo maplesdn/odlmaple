@@ -54,6 +54,7 @@
     <feature version="${openflow.plugin.version}">odl-openflowplugin-southbound</feature>
     <bundle>mvn:org.opendaylight.l2switch.packethandler/packethandler-model/${project.version}</bundle>
     <bundle>mvn:org.opendaylight.l2switch.packethandler/packethandler-impl/${project.version}</bundle>
+    <bundle>mvn:org.maple/core/1.0-SNAPSHOT</bundle>
     <configfile finalname="${config.configfile.directory}/${config.packethandler.configfile}">mvn:org.opendaylight.l2switch.packethandler/packethandler-config/${project.version}/xml/config</configfile>
   </feature>
 </features>
