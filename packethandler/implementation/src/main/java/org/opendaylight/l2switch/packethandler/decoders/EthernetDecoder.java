@@ -79,8 +79,12 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
     // Pass all Ethernet frames to Maple.
     MapleSystem ms = new MapleSystem(null);
 
-    // TODO: replace dummy 42 value with actual ingress port.
-    ms.handlePacket(data, 42);
+    String inPortStr = rpb.getIngress().toString();
+    inPortStr = inPortStr.substring(inPortStr.lastIndexOf(':') + 1);
+    inPortStr = inPortStr.substring(0, inPortStr.indexOf(']'));
+    int inPort = Integer.parseInt(inPortStr);
+
+    ms.handlePacket(data, inPort);
 
     if(packetReceived.getMatch() != null ){
         rpb.setMatch(new MatchBuilder(packetReceived.getMatch()).build());
