@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.maple.core.MapleSystem;
+import org.maple.core.Controller;
 /**
  * Ethernet Packet Decoder
  */
@@ -45,8 +46,16 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
   public static final Integer ETHERTYPE_8021Q = 0x8100;
   public static final Integer ETHERTYPE_QINQ = 0x9100;
 
+  private Controller ODL;
+  private MapleSystem MS;
+
   public EthernetDecoder(NotificationProviderService notificationProviderService) {
     super(EthernetPacketReceived.class, notificationProviderService);
+    System.out.println("EthernetDecoder initiated");
+    this.MS = new MapleSystem(this.ODL);
+    System.out.println("Maple System initiated");
+    this.ODL = new ODLController();
+    System.out.println("ODL Adapter initiated");
   }
 
   @Override
@@ -77,14 +86,14 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
         .setPayloadLength(data.length);
 
     // Pass all Ethernet frames to Maple.
-    MapleSystem ms = new MapleSystem(null);
+    // MapleSystem ms = new MapleSystem(null);
 
     String inPortStr = rpb.getIngress().toString();
     inPortStr = inPortStr.substring(inPortStr.lastIndexOf(':') + 1);
     inPortStr = inPortStr.substring(0, inPortStr.indexOf(']'));
     int inPort = Integer.parseInt(inPortStr);
 
-    ms.handlePacket(data, inPort);
+    this.MS.handlePacket(data, inPort);
 
     if(packetReceived.getMatch() != null ){
         rpb.setMatch(new MatchBuilder(packetReceived.getMatch()).build());
