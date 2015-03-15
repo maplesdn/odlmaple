@@ -33,9 +33,15 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.Pa
 import org.opendaylight.yangtools.yang.binding.NotificationListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnector;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnectorKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
 
 import org.maple.core.MapleSystem;
 import org.maple.core.Controller;
+
 /**
  * Ethernet Packet Decoder
  */
@@ -46,16 +52,16 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
   public static final Integer ETHERTYPE_8021Q = 0x8100;
   public static final Integer ETHERTYPE_QINQ = 0x9100;
 
-  private Controller ODL;
-  private MapleSystem MS;
+  private Controller odl;
+  private MapleSystem maple;
 
   public EthernetDecoder(NotificationProviderService notificationProviderService) {
     super(EthernetPacketReceived.class, notificationProviderService);
     System.out.println("EthernetDecoder initiated");
-    this.MS = new MapleSystem(this.ODL);
-    System.out.println("Maple System initiated");
-    this.ODL = new ODLController();
+    this.odl = new ODLController();
     System.out.println("ODL Adapter initiated");
+    this.maple = new MapleSystem(this.odl);
+    System.out.println("Maple System initiated");
   }
 
   @Override
@@ -85,15 +91,39 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
         .setPayloadOffset(0)
         .setPayloadLength(data.length);
 
-    // Pass all Ethernet frames to Maple.
-    // MapleSystem ms = new MapleSystem(null);
+    NodeConnectorRef ingress = packetReceived.getIngress();
+    String switchID = ingress
+        .getValue()
+        .firstIdentifierOf(Node.class)
+        .firstKeyOf(Node.class, NodeKey.class)
+        .getId()
+        .getValue();
+    String portID = ingress
+        .getValue()
+        .firstIdentifierOf(NodeConnector.class)
+        .firstKeyOf(NodeConnector.class, NodeConnectorKey.class)
+        .getId()
+        .getValue();
 
-    String inPortStr = rpb.getIngress().toString();
-    inPortStr = inPortStr.substring(inPortStr.lastIndexOf(':') + 1);
-    inPortStr = inPortStr.substring(0, inPortStr.indexOf(']'));
-    int inPort = Integer.parseInt(inPortStr);
+    int switchNum = Integer.parseInt(portID.substring(
+        portID.indexOf(':') + 1, portID.lastIndexOf(':')));
+    int portNum = Integer.parseInt(portID.substring(
+        portID.lastIndexOf(':') + 1));
 
-    this.MS.handlePacket(data, inPort);
+    MacAddress dst = null;
+    MacAddress src = null;
+    try {
+      dst = new MacAddress(HexEncode.bytesToHexStringFormat(
+                                    BitBufferHelper.getBits(data, 0, 48)));
+      src = new MacAddress(HexEncode.bytesToHexStringFormat(
+                                    BitBufferHelper.getBits(data, 48, 48)));
+    } catch (BufferException be) {
+      _logger.info("Exception during decoding raw packet to ethernet.");
+    }
+
+    Object[] env = {ingress};
+
+    this.maple.handlePacket(env, data, switchNum, portNum);
 
     if(packetReceived.getMatch() != null ){
         rpb.setMatch(new MatchBuilder(packetReceived.getMatch()).build());
