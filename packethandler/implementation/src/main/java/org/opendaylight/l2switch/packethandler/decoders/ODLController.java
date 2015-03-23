@@ -10,9 +10,7 @@ import org.maple.core.Controller;
 
 public class ODLController implements Controller {
 
-  public void sendPacket(Object[] env, byte[] data, int... ports) {
-
-    NodeConnectorRef ingress = (NodeConnectorRef) env[0];
+  public void sendPacket(byte[] data, int... ports) {
 
     for (int i = 0; i < ports.length; i++) {
       System.out.println("ODLController sending packet to port " + ports[i]);

@@ -121,9 +121,7 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
       _logger.info("Exception during decoding raw packet to ethernet.");
     }
 
-    Object[] env = {ingress};
-
-    this.maple.handlePacket(env, data, switchNum, portNum);
+    this.maple.handlePacket(data, switchNum, portNum);
 
     if(packetReceived.getMatch() != null ){
         rpb.setMatch(new MatchBuilder(packetReceived.getMatch()).build());
