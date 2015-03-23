@@ -20,7 +20,7 @@
     <module>distribution/base</module>
     <module>distribution/karaf</module>
     <module>features</module>
-      <module>maple</module>
+    <module>maple</module>
   </modules>
   <properties>
       <nexusproxy>http://nexus.opendaylight.org/content</nexusproxy>
