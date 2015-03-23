@@ -92,36 +92,39 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
         .setPayloadLength(data.length);
 
     NodeConnectorRef ingress = packetReceived.getIngress();
-    String switchID = ingress
-        .getValue()
-        .firstIdentifierOf(Node.class)
-        .firstKeyOf(Node.class, NodeKey.class)
-        .getId()
-        .getValue();
-    String portID = ingress
-        .getValue()
-        .firstIdentifierOf(NodeConnector.class)
-        .firstKeyOf(NodeConnector.class, NodeConnectorKey.class)
-        .getId()
-        .getValue();
 
-    int switchNum = Integer.parseInt(portID.substring(
-        portID.indexOf(':') + 1, portID.lastIndexOf(':')));
-    int portNum = Integer.parseInt(portID.substring(
-        portID.lastIndexOf(':') + 1));
+    if (ingress != null) {
+      String switchID = ingress
+          .getValue()
+          .firstIdentifierOf(Node.class)
+          .firstKeyOf(Node.class, NodeKey.class)
+          .getId()
+          .getValue();
+      String portID = ingress
+          .getValue()
+          .firstIdentifierOf(NodeConnector.class)
+          .firstKeyOf(NodeConnector.class, NodeConnectorKey.class)
+          .getId()
+          .getValue();
 
-    MacAddress dst = null;
-    MacAddress src = null;
-    try {
-      dst = new MacAddress(HexEncode.bytesToHexStringFormat(
-                                    BitBufferHelper.getBits(data, 0, 48)));
-      src = new MacAddress(HexEncode.bytesToHexStringFormat(
-                                    BitBufferHelper.getBits(data, 48, 48)));
-    } catch (BufferException be) {
-      _logger.info("Exception during decoding raw packet to ethernet.");
+      int switchNum = Integer.parseInt(portID.substring(
+          portID.indexOf(':') + 1, portID.lastIndexOf(':')));
+      int portNum = Integer.parseInt(portID.substring(
+          portID.lastIndexOf(':') + 1));
+
+      MacAddress dst = null;
+      MacAddress src = null;
+      try {
+        dst = new MacAddress(HexEncode.bytesToHexStringFormat(
+                                      BitBufferHelper.getBits(data, 0, 48)));
+        src = new MacAddress(HexEncode.bytesToHexStringFormat(
+                                      BitBufferHelper.getBits(data, 48, 48)));
+      } catch (BufferException be) {
+        _logger.info("Exception decoding mac addresses for Maple.");
+      }
+
+      this.maple.handlePacket(data, switchNum, portNum);
     }
-
-    this.maple.handlePacket(data, switchNum, portNum);
 
     if(packetReceived.getMatch() != null ){
         rpb.setMatch(new MatchBuilder(packetReceived.getMatch()).build());
