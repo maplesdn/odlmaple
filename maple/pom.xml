@@ -1,23 +1,80 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-
   <parent>
     <groupId>org.opendaylight.l2switch</groupId>
     <artifactId>l2switch-parent</artifactId>
     <version>0.2.0-SNAPSHOT</version>
     <relativePath>../parent</relativePath>
   </parent>
-
-  <artifactId>maple.aggregator</artifactId>
   <groupId>org.opendaylight.l2switch.maple</groupId>
-  <version>0.2.0-SNAPSHOT</version>
-  <packaging>pom</packaging>
+  <artifactId>maple</artifactId>
+  <packaging>bundle</packaging>
+  <name>maple</name>
 
-  <modules>
-    <module>implementation</module>
-  </modules>  
+  <dependencies>
+    <dependency>
+      <groupId>org.osgi</groupId>
+      <artifactId>org.osgi.core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.maple</groupId>
+      <artifactId>core</artifactId>
+      <version>1.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.l2switch.packethandler</groupId>
+      <artifactId>packethandler-model</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-all</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller</groupId>
+      <artifactId>sal-binding-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller</groupId>
+      <artifactId>sal-binding-config</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.openflowplugin.model</groupId>
+      <artifactId>model-flow-service</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller</groupId>
+      <artifactId>config-api</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <version>${maven.bundle.version}</version>
+        <extensions>true</extensions>
+        <configuration>
+          <instructions>
+
+                      <Bundle-SymbolicName>${pom.groupId}</Bundle-SymbolicName>
+                      <Bundle-Name>${pom.name}</Bundle-Name>
+                      <Bundle-Version>${pom.version}</Bundle-Version>
+                      <Bundle-Activator>org.opendaylight.l2switch.maple.Activator</Bundle-Activator>
+                      <Private-Package>org.opendaylight.l2switch.maple</Private-Package>
+                  </instructions>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>
