@@ -47,10 +47,8 @@ public class ODLController implements Controller,
 
   private Registration packetInRegistration;
 
-/*
   private ListenerRegistration<DataChangeListener>
                                               dataChangeListenerRegistration;
-*/
 
   private MapleSystem maple;
 
