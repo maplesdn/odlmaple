@@ -8,6 +8,7 @@
 package org.opendaylight.l2switch.maple;
 
 import org.maple.core.Controller;
+import org.maple.core.MapleSystem;
 
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.DataChangeListener;
@@ -46,9 +47,13 @@ public class ODLController implements Controller,
 
   private Registration packetInRegistration;
 
+/*
   private ListenerRegistration<DataChangeListener>
                                               dataChangeListenerRegistration;
-    
+*/
+
+  private MapleSystem maple;
+
   /**
    * @param notificationService the notificationService to set
    */
@@ -79,14 +84,18 @@ public class ODLController implements Controller,
     LOG.debug("start() -->");
     FlowCommitWrapper dataStoreAccessor = new FlowCommitWrapperImpl(data);
 
-    LearningSwitchHandlerSimpleImpl learningSwitchHandler = new LearningSwitchHandlerSimpleImpl();
-    learningSwitchHandler.setRegistrationPublisher(this);
-    learningSwitchHandler.setDataStoreAccessor(dataStoreAccessor);
-    learningSwitchHandler.setPacketProcessingService(packetProcessingService);
-    packetInRegistration = notificationService.registerNotificationListener(learningSwitchHandler);
-    
+    this.maple = new MapleSystem(this);
+
+    PacketHandler handler = new PacketHandler();
+    handler.setRegistrationPublisher(this);
+    handler.setDataStoreAccessor(dataStoreAccessor);
+    handler.setPacketProcessingService(packetProcessingService);
+    handler.setMapleSystem(maple);
+    packetInRegistration = notificationService.registerNotificationListener(handler);
+
     WakeupOnNode wakeupListener = new WakeupOnNode();
-    wakeupListener.setLearningSwitchHandler(learningSwitchHandler);
+    wakeupListener.setPacketHandler(handler);
+/*
     dataChangeListenerRegistration = data.registerDataChangeListener(LogicalDatastoreType.OPERATIONAL,
             InstanceIdentifier.builder(Nodes.class)
                 .child(Node.class)
@@ -94,6 +103,7 @@ public class ODLController implements Controller,
                 .child(Table.class).build(),
             wakeupListener,
             DataBroker.DataChangeScope.SUBTREE);
+*/
     LOG.debug("start() <--");
   }
 

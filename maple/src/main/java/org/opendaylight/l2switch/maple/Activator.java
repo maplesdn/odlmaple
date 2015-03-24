@@ -25,50 +25,50 @@ import org.slf4j.LoggerFactory;
  */
 public class Activator extends AbstractBindingAwareConsumer implements AutoCloseable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(Activator.class);
+  private static final Logger LOG = LoggerFactory.getLogger(Activator.class);
 
   private ODLController controller;
 
 
-    @Override
-    protected void startImpl(BundleContext context) {
-        LOG.info("startImpl() passing");
-    }
+  @Override
+  protected void startImpl(BundleContext context) {
+    LOG.info("startImpl() passing");
+  }
 
+  /**
+   * Invoked when consumer is registered to the MD-SAL.
+   */
+  @Override
+  public void onSessionInitialized(ConsumerContext session) {
+    LOG.info("inSessionInitialized() passing");
     /**
-     * Invoked when consumer is registered to the MD-SAL.
+     * We create instance of our ODLController
+     * and set all required dependencies,
+     *
+     * which are 
+     *   Data Broker (data storage service) - for configuring flows and reading stored switch state
+     *   PacketProcessingService - for sending out packets
+     *   NotificationService - for receiving notifications such as packet in.
+     *
      */
-    @Override
-    public void onSessionInitialized(ConsumerContext session) {
-        LOG.info("inSessionInitialized() passing");
-        /**
-         * We create instance of our ODLController
-         * and set all required dependencies,
-         *
-         * which are 
-         *   Data Broker (data storage service) - for configuring flows and reading stored switch state
-         *   PacketProcessingService - for sending out packets
-         *   NotificationService - for receiving notifications such as packet in.
-         *
-         */
-        this.controller = new ODLController();
-        this.controller.setDataBroker(session.getSALService(DataBroker.class));
-        this.controller.setPacketProcessingService(session.getRpcService(PacketProcessingService.class));
-        this.controller.setNotificationService(session.getSALService(NotificationService.class));
-        this.controller.start();
-    }
+    this.controller = new ODLController();
+    this.controller.setDataBroker(session.getSALService(DataBroker.class));
+    this.controller.setPacketProcessingService(session.getRpcService(PacketProcessingService.class));
+    this.controller.setNotificationService(session.getSALService(NotificationService.class));
+    this.controller.start();
+  }
 
-    @Override
-    public void close() {
-        LOG.info("close() passing");
-        if (this.controller != null) {
-            this.controller.stop();
-        }
+  @Override
+  public void close() {
+    LOG.info("close() passing");
+    if (this.controller != null) {
+      this.controller.stop();
     }
+  }
 
-    @Override
-    protected void stopImpl(BundleContext context) {
-        close();
-        super.stopImpl(context);
-    }
+  @Override
+  protected void stopImpl(BundleContext context) {
+    close();
+    super.stopImpl(context);
+  }
 }

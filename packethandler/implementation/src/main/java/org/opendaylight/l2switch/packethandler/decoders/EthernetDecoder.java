@@ -57,11 +57,11 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
 
   public EthernetDecoder(NotificationProviderService notificationProviderService) {
     super(EthernetPacketReceived.class, notificationProviderService);
-    System.out.println("EthernetDecoder initiated");
-    this.odl = new ODLController();
-    System.out.println("ODL Adapter initiated");
-    this.maple = new MapleSystem(this.odl);
-    System.out.println("Maple System initiated");
+    //System.out.println("EthernetDecoder initiated");
+    //this.odl = new ODLController();
+    //System.out.println("ODL Adapter initiated");
+    //this.maple = new MapleSystem(this.odl);
+    //System.out.println("Maple System initiated");
   }
 
   @Override
@@ -90,7 +90,7 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
         .setPacketInReason(packetReceived.getPacketInReason())
         .setPayloadOffset(0)
         .setPayloadLength(data.length);
-
+/*
     NodeConnectorRef ingress = packetReceived.getIngress();
 
     if (ingress != null) {
@@ -125,7 +125,7 @@ public class EthernetDecoder extends AbstractPacketDecoder<PacketReceived, Ether
 
       this.maple.handlePacket(data, switchNum, portNum);
     }
-
+*/
     if(packetReceived.getMatch() != null ){
         rpb.setMatch(new MatchBuilder(packetReceived.getMatch()).build());
     }
