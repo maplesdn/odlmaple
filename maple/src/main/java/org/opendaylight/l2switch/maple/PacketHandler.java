@@ -8,8 +8,11 @@
 
 package org.opendaylight.l2switch.maple;
 
+import org.maple.core.Controller;
 import org.maple.core.MapleSystem;
 
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorUpdatedBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -48,7 +51,7 @@ import org.slf4j.LoggerFactory;
  *
  *
  */
-public class PacketHandler implements LearningSwitchHandler, PacketProcessingListener {
+public class PacketHandler implements LearningSwitchHandler, PacketProcessingListener, Controller {
 
   private static final Logger LOG = LoggerFactory.getLogger(PacketHandler.class);
 
@@ -72,8 +75,26 @@ public class PacketHandler implements LearningSwitchHandler, PacketProcessingLis
   private Map<MacAddress, NodeConnectorRef> mac2portMapping;
   private Set<String> coveredMacPaths;
 
+  private Map<Integer, NodeConnectorRef> port2NodeConnectorRef;
+    // similar to flood(), create a NodeConnectorRef as a placeholder for ingress
+  private NodeConnectorRef ingressPlaceHolder(int portNum) {
+      if(port2NodeConnectorRef.get(portNum)!=null)
+          return port2NodeConnectorRef.get(portNum);
+      else {
+          NodeConnectorUpdatedBuilder ncub = new NodeConnectorUpdatedBuilder();
+          NodeConnectorId nodeConnectorId = new NodeConnectorId("portName");
+
+          NodeId nodeId = new NodeId("node_001");
+          InstanceIdentifier<NodeConnector> instanceIdentifier = InstanceIdentifier.builder(Nodes.class)
+                  .child(Node.class, new NodeKey(nodeId))
+                  .child(NodeConnector.class, new NodeConnectorKey(nodeConnectorId)).toInstance();
+          NodeConnectorRef nodeConnectorRef = new NodeConnectorRef(instanceIdentifier);
+          return nodeConnectorRef;
+      }
+  }
   public void setMapleSystem(MapleSystem maple) {
     this.maple = maple;
+    port2NodeConnectorRef = new HashMap<>();
   }
 
   @Override
@@ -166,7 +187,8 @@ public class PacketHandler implements LearningSwitchHandler, PacketProcessingLis
 
     MacAddress dstMac = PacketUtils.rawMacToMac(dstMacRaw);
     MacAddress srcMac = PacketUtils.rawMacToMac(srcMacRaw);
-
+    port2NodeConnectorRef.put(portNum, ingress);
+    System.out.println("Mapping portNum "+portNum+" to NodeConnectorRef. ");
     this.maple.handlePacket(data, switchNum, portNum);
 
 /*
@@ -241,12 +263,32 @@ public class PacketHandler implements LearningSwitchHandler, PacketProcessingLis
       }
   }
 
+  public void sendPacket(byte[] data, int... ports) {
+    System.out.println("sendPacket Called in handler");
+    if(ports[0]==Integer.MAX_VALUE) {
+        flood(data, ingressPlaceHolder(ports[0]));
+        return;
+    }
+    for (int i=0; i<ports.length; i++) {
+        if (port2NodeConnectorRef.get(ports[i])!=null) {
+            sendPacketOut(data, ingressPlaceHolder(ports[i]), port2NodeConnectorRef.get(ports[i]));
+            System.out.println("Sendpacket command issued to send packet to port " + ports[i]);
+        }
+        else
+            System.out.println("port not in map, "+ port2NodeConnectorRef.toString());
+    }
+  }
+
   private void flood(byte[] payload, NodeConnectorRef ingress) {
+      System.out.println("trying to flood the switch, but nodePath is not defined");
+      return;
+      /*
       NodeConnectorKey nodeConnectorKey = new NodeConnectorKey(nodeConnectorId("0xfffffffb"));
       InstanceIdentifier<?> nodeConnectorPath = InstanceIdentifierUtils.createNodeConnectorPath(nodePath, nodeConnectorKey);
       NodeConnectorRef egressConnectorRef = new NodeConnectorRef(nodeConnectorPath);
 
       sendPacketOut(payload, ingress, egressConnectorRef);
+      */
   }
 
   private NodeConnectorId nodeConnectorId(String connectorId) {

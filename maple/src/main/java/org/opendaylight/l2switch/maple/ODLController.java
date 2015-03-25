@@ -82,15 +82,16 @@ public class ODLController implements Controller,
     LOG.debug("start() -->");
     FlowCommitWrapper dataStoreAccessor = new FlowCommitWrapperImpl(data);
 
-    this.maple = new MapleSystem(this);
+
 
     PacketHandler handler = new PacketHandler();
     handler.setRegistrationPublisher(this);
     handler.setDataStoreAccessor(dataStoreAccessor);
     handler.setPacketProcessingService(packetProcessingService);
+    this.maple = new MapleSystem(handler);
     handler.setMapleSystem(maple);
     packetInRegistration = notificationService.registerNotificationListener(handler);
-
+    System.out.println("Maple Initiated");
     WakeupOnNode wakeupListener = new WakeupOnNode();
     wakeupListener.setPacketHandler(handler);
 /*
