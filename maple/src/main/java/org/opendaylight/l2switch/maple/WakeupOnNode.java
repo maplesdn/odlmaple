@@ -31,7 +31,7 @@ public class WakeupOnNode implements DataChangeListener {
     @Override
     public void onDataChanged(AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
         Short requiredTableId = 0;
-
+        System.out.println("Data change notified to WakeupOnNode");
         // TODO add flow
 
         Map<InstanceIdentifier<?>, DataObject> updated = change.getUpdatedData();

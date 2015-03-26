@@ -94,7 +94,7 @@ public class ODLController implements Controller,
     System.out.println("Maple Initiated");
     WakeupOnNode wakeupListener = new WakeupOnNode();
     wakeupListener.setPacketHandler(handler);
-/*
+
     dataChangeListenerRegistration = data.registerDataChangeListener(LogicalDatastoreType.OPERATIONAL,
             InstanceIdentifier.builder(Nodes.class)
                 .child(Node.class)
@@ -102,7 +102,7 @@ public class ODLController implements Controller,
                 .child(Table.class).build(),
             wakeupListener,
             DataBroker.DataChangeScope.SUBTREE);
-*/
+
     LOG.debug("start() <--");
   }
 
