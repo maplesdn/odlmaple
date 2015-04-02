@@ -26,7 +26,7 @@ public class WakeupOnNode implements DataChangeListener {
     private static final Logger LOG = LoggerFactory
             .getLogger(WakeupOnNode.class);
 
-    private PacketHandler handler;
+    private ODLController controller;
 
     @Override
     public void onDataChanged(AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
@@ -44,7 +44,7 @@ public class WakeupOnNode implements DataChangeListener {
                 if (requiredTableId.equals(tableSure.getId())) {
                     @SuppressWarnings("unchecked")
                     InstanceIdentifier<Table> tablePath = (InstanceIdentifier<Table>) updateItem.getKey();
-                    handler.onSwitchAppeared(tablePath);
+                    controller.onSwitchAppeared(tablePath);
                 }
             }
         }
@@ -53,8 +53,8 @@ public class WakeupOnNode implements DataChangeListener {
     /**
      * @param handler the PacketHandler to set
      */
-    public void setPacketHandler(PacketHandler handler) {
-        this.handler = handler;
+    public void setController(ODLController controller) {
+        this.controller = controller;
     }
 
 }
