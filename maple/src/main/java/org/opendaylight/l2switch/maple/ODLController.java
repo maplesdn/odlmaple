@@ -328,30 +328,31 @@ public class ODLController implements DataChangeListenerRegistrationHolder,
     System.out.println("sendPacket Called in handler");
 
     if (ports[0] == Integer.MAX_VALUE) {
-      flood(data, ingressPlaceHolder(ports[0]));
+        int MAGIC_PORT_NUM = 1; // TODO: fill this in properly eventually.
+      flood(data, ingressPlaceHolder(MAGIC_PORT_NUM));
       return;
     }
 
     for (int i = 0; i < ports.length; i++) {
-      if (port2NodeConnectorRef.get(ports[i]) != null) {
-        sendPacketOut(data, ingressPlaceHolder(ports[i]), port2NodeConnectorRef.get(ports[i]));
-        System.out.println("Sendpacket command issued to send packet to port " + ports[i]);
-      } else {
-        System.out.println("port not in map, "+ port2NodeConnectorRef.toString());
-      }
+        NodeConnectorRef ncRef = PacketUtils.createNodeConnRef(
+                nodePath,
+                nodePath.firstKeyOf(Node.class, NodeKey.class),
+                ports[i] + "");
+        //System.out.println("sendPacket.ncRef: " + ncRef);
+        sendPacketOut(data, ingressPlaceHolder(ports[i]), ncRef);
     }
+
   }
 
   private void flood(byte[] payload, NodeConnectorRef ingress) {
-    System.out.println("trying to flood the switch, but nodePath is not defined");
-    return;
-      /*
+    // System.out.println("trying to flood the switch, but nodePath is not defined");
+    // return;
+
       NodeConnectorKey nodeConnectorKey = new NodeConnectorKey(nodeConnectorId("0xfffffffb"));
       InstanceIdentifier<?> nodeConnectorPath = InstanceIdentifierUtils.createNodeConnectorPath(nodePath, nodeConnectorKey);
       NodeConnectorRef egressConnectorRef = new NodeConnectorRef(nodeConnectorPath);
 
       sendPacketOut(payload, ingress, egressConnectorRef);
-      */
   }
 
   private NodeConnectorId nodeConnectorId(String connectorId) {
