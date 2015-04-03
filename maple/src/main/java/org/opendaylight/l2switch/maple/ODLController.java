@@ -46,24 +46,15 @@ import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.opendaylight.controller.md.sal.binding.api.DataBroker;
+import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.controller.md.sal.binding.api.DataChangeListener;
-import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
-import org.opendaylight.controller.sal.binding.api.NotificationService;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
-import org.opendaylight.yangtools.concepts.ListenerRegistration;
-import org.opendaylight.yangtools.concepts.Registration;
+import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeEvent;
 
-public class ODLController implements DataChangeListenerRegistrationHolder,
+public class ODLController implements DataChangeListener,
                                       PacketProcessingListener,
                                       Controller {
 
   protected static final Logger LOG = LoggerFactory.getLogger(ODLController.class);
-
-  private Registration packetInRegistration;
-
-  private ListenerRegistration<DataChangeListener>
-                                              dataChangeListenerRegistration;
 
   private static final byte[] ETH_TYPE_IPV4 = new byte[] { 0x08, 0x00 };
 
@@ -87,35 +78,25 @@ public class ODLController implements DataChangeListenerRegistrationHolder,
 
   /* Given from Activator. */
 
-  private NotificationService notificationService;
-  private PacketProcessingService packetProcessingService;
-  private DataBroker data;
+  private PacketProcessingService pps;
 
-  public void setDataBroker(DataBroker data) {
-    this.data = data;
+  private ODLController() {}
+
+  public ODLController(PacketProcessingService pps) {
+    this.pps = pps;
   }
 
-  public void setPacketProcessingService(PacketProcessingService
-                                         packetProcessingService) {
-    this.packetProcessingService = packetProcessingService;
-  }
+  /* Implements DataChangeListener. */
 
-  public void setNotificationService(NotificationService
-                                     notificationService) {
-    this.notificationService = notificationService;
-  }
+  @Override
+  public void onDataChanged(
+            final AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
 
-  /* Implements DataChangeListenerRegistrationHolder. */
-
-  private DataChangeListenerRegistrationHolder registrationPublisher;
-
-  public ListenerRegistration<DataChangeListener> 
-                           getDataChangeListenerRegistration() {
-    return dataChangeListenerRegistration;
   }
 
   /* Implements PacketProcessingListener. */
 
+  @Override
   public void onPacketReceived(PacketReceived packet) {
     if (packet == null || packet.getPayload() ==  null)
       return;
@@ -206,22 +187,10 @@ public class ODLController implements DataChangeListenerRegistrationHolder,
   public void start() {
     LOG.debug("start() -->");
 
-    this.dataStoreAccessor = new FlowCommitWrapperImpl(data);
     this.maple = new MapleSystem(this);
-    packetInRegistration = notificationService.registerNotificationListener(this);
     System.out.println("Maple Initiated");
-    WakeupOnNode wakeupListener = new WakeupOnNode();
-    wakeupListener.setController(this);
     port2NodeConnectorRef = new HashMap<>();
-/*
-    dataChangeListenerRegistration = data.registerDataChangeListener(LogicalDatastoreType.OPERATIONAL,
-            InstanceIdentifier.builder(Nodes.class)
-                .child(Node.class)
-                .augmentation(FlowCapableNode.class)
-                .child(Table.class).build(),
-            wakeupListener,
-            DataBroker.DataChangeScope.SUBTREE);
-*/
+
     LOG.debug("start() <--");
   }
 
@@ -231,17 +200,7 @@ public class ODLController implements DataChangeListenerRegistrationHolder,
   public void stop() {
     LOG.debug("stop() -->");
     //TODO: remove flow (created in #start())
-    try {
-      packetInRegistration.close();
-    } catch (Exception e) {
-      LOG.error(e.getMessage(), e);
-    }
-    try {
-      dataChangeListenerRegistration.close();
-    } catch (Exception e) {
-      LOG.error(e.getMessage(), e);
-    }
-      LOG.debug("stop() <--");
+    LOG.debug("stop() <--");
   }
  
     // similar to flood(), create a NodeConnectorRef as a placeholder for ingress
@@ -260,7 +219,7 @@ public class ODLController implements DataChangeListenerRegistrationHolder,
       return nodeConnectorRef;
     }
   }
-
+/*
   public synchronized void onSwitchAppeared(InstanceIdentifier<Table> appearedTablePath) {
 
     LOG.debug("expected table acquired, learning ..");
@@ -295,7 +254,7 @@ public class ODLController implements DataChangeListenerRegistrationHolder,
     LOG.debug("writing packetForwardToController flow");
     dataStoreAccessor.writeFlowToConfig(flowPath, allToCtrlFlow.build());
   }
-
+*/
   /**
    * @param srcMac
    * @param dstMac
@@ -369,6 +328,6 @@ public class ODLController implements DataChangeListenerRegistrationHolder,
               .setEgress(egress)
               .setIngress(ingress)
               .build();
-    packetProcessingService.transmitPacket(input);
+    pps.transmitPacket(input);
   }
 }

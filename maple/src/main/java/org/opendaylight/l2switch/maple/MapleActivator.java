@@ -10,12 +10,27 @@ package org.opendaylight.l2switch.maple;
 import org.opendaylight.controller.sal.binding.api.AbstractBindingAwareConsumer;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker.ConsumerContext;
 
-import org.opendaylight.controller.md.sal.binding.api.DataBroker;
-import org.opendaylight.controller.sal.binding.api.NotificationService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService;
+import org.opendaylight.yangtools.concepts.ListenerRegistration;
+import org.opendaylight.yangtools.yang.binding.NotificationListener;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingListener;
+
+import org.opendaylight.controller.md.sal.binding.api.DataBroker;
+import org.opendaylight.controller.md.sal.common.api.data.AsyncDataBroker.DataChangeScope;
+import org.opendaylight.controller.md.sal.binding.api.DataChangeListener;
+import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
+import org.opendaylight.controller.md.sal.binding.api.NotificationService;
 import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+/*
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NetworkTopology;
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TopologyId;
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.Topology;
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.TopologyKey;
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Link;
+*/
 
 /**
  * Maple activator.
@@ -30,6 +45,10 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
 
   private ODLController controller;
 
+  /* Listener for packet-in event. */
+  private ListenerRegistration<ODLController> notificationListenerReg;
+  /* Listener for data-change events. */
+  private ListenerRegistration<DataChangeListener> dataChangeListenerReg;
 
   @Override
   protected void startImpl(BundleContext context) {
@@ -42,26 +61,50 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
   @Override
   public void onSessionInitialized(ConsumerContext session) {
     LOG.info("inSessionInitialized() passing");
-    /**
-     * We create instance of our ODLController
-     * and set all required dependencies,
-     *
-     * which are 
-     *   Data Broker (data storage service) - for configuring flows and reading stored switch state
-     *   PacketProcessingService - for sending out packets
-     *   NotificationService - for receiving notifications such as packet in.
-     *
-     */
-    this.controller = new ODLController();
-    this.controller.setDataBroker(session.getSALService(DataBroker.class));
-    this.controller.setPacketProcessingService(session.getRpcService(PacketProcessingService.class));
-    this.controller.setNotificationService(session.getSALService(NotificationService.class));
+
+    PacketProcessingService pps = session.getRpcService(PacketProcessingService.class);
+    this.controller = new ODLController(pps);
+
+    NotificationService ns = session.getSALService(NotificationService.class);
+    this.notificationListenerReg = ns.registerNotificationListener(this.controller);
+/*
+    DataBroker db = session.getSALService(DataBroker.class);
+    String topoIdentifier = InstanceIdentifier
+      .builder(NetworkTopology.class)
+      .toInstance();
+    InstanceIdentifier<Link> linkInstance = InstanceIdentifier
+      .builder(NetworkTopology.class)
+      .child(Topology.class,
+        new TopologyKey(new TopologyId(topoIdentifier)))
+      .child(Link.class)
+      .build();
+
+    this.dataChangeListenerReg = db.registerDataChangeListener(
+      LogicalDatastoreType.OPERATIONAL,
+      linkInstance,
+      this.controller,
+      DataChangeScope.BASE
+    );
+*/
     this.controller.start();
   }
 
   @Override
   public void close() {
     LOG.info("close() passing");
+
+    try {
+      this.dataChangeListenerReg.close();
+    } catch (Exception e) {
+      LOG.error(e.getMessage(), e);
+    }
+/*
+    try {
+      this.notificationListenerReg.close();
+    } catch (Exception e) {
+      LOG.error(e.getMessage(), e);
+    }
+*/
     if (this.controller != null) {
       this.controller.stop();
     }
