@@ -24,18 +24,8 @@
       <version>1.0-SNAPSHOT</version>
     </dependency>
     <dependency>
-      <groupId>org.opendaylight.l2switch.packethandler</groupId>
-      <artifactId>packethandler-model</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-all</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -65,13 +55,12 @@
         <extensions>true</extensions>
         <configuration>
           <instructions>
-
-                      <Bundle-SymbolicName>${pom.groupId}</Bundle-SymbolicName>
-                      <Bundle-Name>${pom.name}</Bundle-Name>
-                      <Bundle-Version>${pom.version}</Bundle-Version>
-                      <Bundle-Activator>org.opendaylight.l2switch.maple.Activator</Bundle-Activator>
-                      <Private-Package>org.opendaylight.l2switch.maple</Private-Package>
-                  </instructions>
+            <Bundle-SymbolicName>${pom.groupId}</Bundle-SymbolicName>
+            <Bundle-Name>${pom.name}</Bundle-Name>
+            <Bundle-Version>${pom.version}</Bundle-Version>
+            <Bundle-Activator>org.opendaylight.l2switch.maple.MapleActivator</Bundle-Activator>
+            <Private-Package>org.opendaylight.l2switch.maple</Private-Package>
+          </instructions>
         </configuration>
       </plugin>
     </plugins>
