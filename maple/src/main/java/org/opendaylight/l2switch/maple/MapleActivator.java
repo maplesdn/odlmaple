@@ -19,7 +19,7 @@ import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataBroker.DataChangeScope;
 import org.opendaylight.controller.md.sal.binding.api.DataChangeListener;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
-import org.opendaylight.controller.md.sal.binding.api.NotificationService;
+import org.opendaylight.controller.sal.binding.api.NotificationService;
 import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +46,7 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
   private ODLController controller;
 
   /* Listener for packet-in event. */
-  private ListenerRegistration<ODLController> notificationListenerReg;
+  private ListenerRegistration<NotificationListener> notificationListenerReg;
   /* Listener for data-change events. */
   private ListenerRegistration<DataChangeListener> dataChangeListenerReg;
 
@@ -62,13 +62,14 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
   public void onSessionInitialized(ConsumerContext session) {
     LOG.info("inSessionInitialized() passing");
 
+    DataBroker db = session.getSALService(DataBroker.class);
+
     PacketProcessingService pps = session.getRpcService(PacketProcessingService.class);
     this.controller = new ODLController(pps);
 
     NotificationService ns = session.getSALService(NotificationService.class);
     this.notificationListenerReg = ns.registerNotificationListener(this.controller);
 /*
-    DataBroker db = session.getSALService(DataBroker.class);
     String topoIdentifier = InstanceIdentifier
       .builder(NetworkTopology.class)
       .toInstance();
