@@ -238,7 +238,6 @@ public class ODLController implements DataChangeListener,
 
     tablePath = appearedTablePath;
     nodePath = tablePath.firstIdentifierOf(Node.class);
-    System.out.println("nodePath: " + nodePath);
     nodeId = nodePath.firstKeyOf(Node.class, NodeKey.class).getId();
     mac2portMapping = new HashMap<>();
     coveredMacPaths = new HashSet<>();
@@ -262,15 +261,11 @@ public class ODLController implements DataChangeListener,
   public void onDataChanged(AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
     Short requiredTableId = 0;
 
-    System.out.println("data change!");
-
     Map<InstanceIdentifier<?>, DataObject> updated = change.getUpdatedData();
     for (Entry<InstanceIdentifier<?>, DataObject> updateItem : updated.entrySet()) {
       DataObject table = updateItem.getValue();
-      System.out.println("updated item is of type: " + table.getClass().getName());
       if (table instanceof Table) {
         Table tableSure = (Table) table;
-        System.out.println("Table found: " + tableSure.getId());
         LOG.trace("table: {}", table);
 
         if (requiredTableId.equals(tableSure.getId())) {
@@ -325,7 +320,7 @@ public class ODLController implements DataChangeListener,
                 nodePath,
                 nodePath.firstKeyOf(Node.class, NodeKey.class),
                 ports[i] + "");
-        System.out.println("sendPacket.ncRef: " + ncRef);
+        //System.out.println("sendPacket.ncRef: " + ncRef);
         sendPacketOut(data, ingressPlaceHolder(ports[i]), ncRef);
     }
 
