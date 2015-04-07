@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -88,10 +89,8 @@ public class ODLController implements DataChangeListener,
 
   /* Implements DataChangeListener. */
 
-  @Override
-  public void onDataChanged(
-            final AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
-
+  public void setDataStoreAccessor(FlowCommitWrapper dataStoreAccessor) {
+    this.dataStoreAccessor = dataStoreAccessor;
   }
 
   /* Implements PacketProcessingListener. */
@@ -219,12 +218,13 @@ public class ODLController implements DataChangeListener,
       return nodeConnectorRef;
     }
   }
-/*
+
   public synchronized void onSwitchAppeared(InstanceIdentifier<Table> appearedTablePath) {
 
     LOG.debug("expected table acquired, learning ..");
 
     // disable listening - simple learning handles only one node (switch)
+/*
     if (registrationPublisher != null) {
       try {
         LOG.debug("closing dataChangeListenerRegistration");
@@ -233,9 +233,12 @@ public class ODLController implements DataChangeListener,
         LOG.error("closing registration upon flowCapable node update listener failed: " + e.getMessage(), e);
       }
     }
+*/
+
 
     tablePath = appearedTablePath;
     nodePath = tablePath.firstIdentifierOf(Node.class);
+    System.out.println("nodePath: " + nodePath);
     nodeId = nodePath.firstKeyOf(Node.class, NodeKey.class).getId();
     mac2portMapping = new HashMap<>();
     coveredMacPaths = new HashSet<>();
@@ -254,7 +257,32 @@ public class ODLController implements DataChangeListener,
     LOG.debug("writing packetForwardToController flow");
     dataStoreAccessor.writeFlowToConfig(flowPath, allToCtrlFlow.build());
   }
-*/
+
+  @Override
+  public void onDataChanged(AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
+    Short requiredTableId = 0;
+
+    System.out.println("data change!");
+
+    Map<InstanceIdentifier<?>, DataObject> updated = change.getUpdatedData();
+    for (Entry<InstanceIdentifier<?>, DataObject> updateItem : updated.entrySet()) {
+      DataObject table = updateItem.getValue();
+      System.out.println("updated item is of type: " + table.getClass().getName());
+      if (table instanceof Table) {
+        Table tableSure = (Table) table;
+        System.out.println("Table found: " + tableSure.getId());
+        LOG.trace("table: {}", table);
+
+        if (requiredTableId.equals(tableSure.getId())) {
+          @SuppressWarnings("unchecked")
+          InstanceIdentifier<Table> tablePath = (InstanceIdentifier<Table>) updateItem.getKey();
+          onSwitchAppeared(tablePath);
+        }
+      }
+    }
+  }
+
+
   /**
    * @param srcMac
    * @param dstMac
@@ -297,7 +325,7 @@ public class ODLController implements DataChangeListener,
                 nodePath,
                 nodePath.firstKeyOf(Node.class, NodeKey.class),
                 ports[i] + "");
-        //System.out.println("sendPacket.ncRef: " + ncRef);
+        System.out.println("sendPacket.ncRef: " + ncRef);
         sendPacketOut(data, ingressPlaceHolder(ports[i]), ncRef);
     }
 

@@ -19,6 +19,12 @@ import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataBroker.DataChangeScope;
 import org.opendaylight.controller.md.sal.binding.api.DataChangeListener;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
+import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.Table;
+
 import org.opendaylight.controller.sal.binding.api.NotificationService;
 import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
@@ -62,10 +68,11 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
   public void onSessionInitialized(ConsumerContext session) {
     LOG.info("inSessionInitialized() passing");
 
-    DataBroker db = session.getSALService(DataBroker.class);
-
     PacketProcessingService pps = session.getRpcService(PacketProcessingService.class);
     this.controller = new ODLController(pps);
+
+    DataBroker db = session.getSALService(DataBroker.class);
+    this.controller.setDataStoreAccessor(new FlowCommitWrapperImpl(db));
 
     NotificationService ns = session.getSALService(NotificationService.class);
     this.notificationListenerReg = ns.registerNotificationListener(this.controller);
@@ -87,6 +94,16 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
       DataChangeScope.BASE
     );
 */
+
+    this.dataChangeListenerReg = db.registerDataChangeListener(
+      LogicalDatastoreType.OPERATIONAL,
+      InstanceIdentifier.builder(Nodes.class)
+        .child(Node.class)
+        .augmentation(FlowCapableNode.class)
+        .child(Table.class).build(),
+      this.controller,
+      DataChangeScope.SUBTREE);
+
     this.controller.start();
   }
 
