@@ -11,11 +11,6 @@
   </prerequisites>
   <modules>
     <module>parent</module>
-    <module>packethandler</module>
-    <module>loopremover</module>
-    <module>arphandler</module>
-    <module>addresstracker</module>
-    <module>hosttracker</module>
     <module>l2switch-main</module>
     <module>distribution/base</module>
     <module>distribution/karaf</module>
