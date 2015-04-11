@@ -190,6 +190,8 @@ public class ODLController implements DataChangeListener,
     System.out.println("Maple Initiated");
     port2NodeConnectorRef = new HashMap<>();
 
+    this.nodePath = InstanceIdentifierUtils.createNodePath(new NodeId("node_001"));
+
     LOG.debug("start() <--");
   }
 
@@ -329,12 +331,11 @@ public class ODLController implements DataChangeListener,
   private void flood(byte[] payload, NodeConnectorRef ingress) {
     // System.out.println("trying to flood the switch, but nodePath is not defined");
     // return;
+    NodeConnectorKey nodeConnectorKey = new NodeConnectorKey(nodeConnectorId("0xfffffffb"));
+    InstanceIdentifier<?> nodeConnectorPath = InstanceIdentifierUtils.createNodeConnectorPath(nodePath, nodeConnectorKey);
+    NodeConnectorRef egressConnectorRef = new NodeConnectorRef(nodeConnectorPath);
 
-      NodeConnectorKey nodeConnectorKey = new NodeConnectorKey(nodeConnectorId("0xfffffffb"));
-      InstanceIdentifier<?> nodeConnectorPath = InstanceIdentifierUtils.createNodeConnectorPath(nodePath, nodeConnectorKey);
-      NodeConnectorRef egressConnectorRef = new NodeConnectorRef(nodeConnectorPath);
-
-      sendPacketOut(payload, ingress, egressConnectorRef);
+    sendPacketOut(payload, ingress, egressConnectorRef);
   }
 
   private NodeConnectorId nodeConnectorId(String connectorId) {
