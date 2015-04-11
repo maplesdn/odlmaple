@@ -47,6 +47,15 @@ import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.AddFlowOutput;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.AddFlowInputBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.FlowRef;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.FlowTableRef;
+import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Uri;
+import java.util.concurrent.Future;
+import org.opendaylight.yangtools.yang.common.RpcResult;
+
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.controller.md.sal.binding.api.DataChangeListener;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeEvent;
@@ -89,11 +98,13 @@ public class ODLController implements DataChangeListener,
   /* Given from Activator. */
 
   private PacketProcessingService pps;
+  private SalFlowService fs;
 
   private ODLController() {}
 
-  public ODLController(PacketProcessingService pps) {
+  public ODLController(PacketProcessingService pps, SalFlowService fs) {
     this.pps = pps;
+    this.fs = fs;
   }
 
   /* Implements DataChangeListener. */
@@ -230,7 +241,7 @@ public class ODLController implements DataChangeListener,
       throw new IllegalArgumentException("portNum " + portNum + " does not exist in map");
   }
 
-  public synchronized void onSwitchAppeared(InstanceIdentifier<Table> appearedTablePath) {
+  public synchronized Future<RpcResult<AddFlowOutput>> onSwitchAppeared(InstanceIdentifier<Table> appearedTablePath) {
 
     LOG.debug("expected table acquired, learning ..");
 
@@ -251,21 +262,32 @@ public class ODLController implements DataChangeListener,
     nodeId = nodePath.firstKeyOf(Node.class, NodeKey.class).getId();
     mac2portMapping = new HashMap<>();
     coveredMacPaths = new HashSet<>();
-/*
+
     // start forwarding all packages to controller
     FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
     FlowKey flowKey = new FlowKey(flowId);
     InstanceIdentifier<Flow> flowPath = InstanceIdentifierUtils.createFlowPath(tablePath, flowKey);
 
-    int priority = 0;
+    int priority = 4;
     // create flow in table with id = 0, priority = 4 (other params are
     // defaulted in OFDataStoreUtil)
     FlowBuilder allToCtrlFlow = FlowUtils.createFwdAllToControllerFlow(
             InstanceIdentifierUtils.getTableId(tablePath), priority, flowId);
 
+    InstanceIdentifier<Table> tableInstanceId = flowPath.<Table>firstIdentifierOf(Table.class);
+    InstanceIdentifier<Node> nodeInstanceId = flowPath.<Node>firstIdentifierOf(Node.class);
+
     LOG.debug("writing packetForwardToController flow");
-    dataStoreAccessor.writeFlowToConfig(flowPath, allToCtrlFlow.build());
-*/
+    Flow f = allToCtrlFlow.build();
+    AddFlowInputBuilder builder = new AddFlowInputBuilder(f);
+    builder.setNode(new NodeRef(nodeInstanceId));
+    builder.setFlowRef(new FlowRef(flowPath));
+    builder.setFlowTable(new FlowTableRef(tableInstanceId));
+    builder.setTransactionUri(new Uri(f.getId().getValue()));
+    //return fs.addFlow(builder.build());
+    //dataStoreAccessor.writeFlowToConfig(flowPath, allToCtrlFlow.build());
+    return null;
+
   }
 
   @Override
@@ -284,35 +306,6 @@ public class ODLController implements DataChangeListener,
           InstanceIdentifier<Table> tablePath = (InstanceIdentifier<Table>) updateItem.getKey();
           onSwitchAppeared(tablePath);
         }
-      }
-    }
-  }
-
-
-  /**
-   * @param srcMac
-   * @param dstMac
-   * @param destNodeConnector
-   */
-  private void addBridgeFlow(MacAddress srcMac, MacAddress dstMac, NodeConnectorRef destNodeConnector) {
-    synchronized (coveredMacPaths) {
-      String macPath = srcMac.toString() + dstMac.toString();
-      if (!coveredMacPaths.contains(macPath)) {
-        LOG.debug("covering mac path: {} by [{}]", macPath,
-                  destNodeConnector.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId());
-
-        coveredMacPaths.add(macPath);
-        FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
-        FlowKey flowKey = new FlowKey(flowId);
-        /* Path to the flow we want to program. */
-        InstanceIdentifier<Flow> flowPath = InstanceIdentifierUtils.createFlowPath(tablePath, flowKey);
-
-        Short tableId = InstanceIdentifierUtils.getTableId(tablePath);
-        FlowBuilder srcToDstFlow = FlowUtils.createDirectMacToMacFlow(tableId, DIRECT_FLOW_PRIORITY, srcMac,
-                      dstMac, destNodeConnector);
-        srcToDstFlow.setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())));
-
-        dataStoreAccessor.writeFlowToConfig(flowPath, srcToDstFlow.build());
       }
     }
   }
@@ -359,4 +352,28 @@ public class ODLController implements DataChangeListener,
       .build();
     pps.transmitPacket(input);
   }
+
+/*
+  private void addBridgeFlow(MacAddress srcMac, MacAddress dstMac, NodeConnectorRef destNodeConnector) {
+    synchronized (coveredMacPaths) {
+      String macPath = srcMac.toString() + dstMac.toString();
+      if (!coveredMacPaths.contains(macPath)) {
+        LOG.debug("covering mac path: {} by [{}]", macPath,
+                  destNodeConnector.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId());
+
+        coveredMacPaths.add(macPath);
+        FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
+        FlowKey flowKey = new FlowKey(flowId);
+        InstanceIdentifier<Flow> flowPath = InstanceIdentifierUtils.createFlowPath(tablePath, flowKey);
+
+        Short tableId = InstanceIdentifierUtils.getTableId(tablePath);
+        FlowBuilder srcToDstFlow = FlowUtils.createDirectMacToMacFlow(tableId, DIRECT_FLOW_PRIORITY, srcMac,
+                      dstMac, destNodeConnector);
+        srcToDstFlow.setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())));
+
+        dataStoreAccessor.writeFlowToConfig(flowPath, srcToDstFlow.build());
+      }
+    }
+  }
+*/
 }

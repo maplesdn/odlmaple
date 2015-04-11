@@ -10,6 +10,8 @@ package org.opendaylight.l2switch.maple;
 import org.opendaylight.controller.sal.binding.api.AbstractBindingAwareConsumer;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker.ConsumerContext;
 
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
+
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService;
 import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.binding.NotificationListener;
@@ -69,7 +71,8 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
     LOG.info("inSessionInitialized() passing");
 
     PacketProcessingService pps = session.getRpcService(PacketProcessingService.class);
-    this.controller = new ODLController(pps);
+    SalFlowService fs = session.getRpcService(SalFlowService.class);
+    this.controller = new ODLController(pps, fs);
 
     DataBroker db = session.getSALService(DataBroker.class);
     this.controller.setDataStoreAccessor(new FlowCommitWrapperImpl(db));
