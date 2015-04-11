@@ -309,12 +309,12 @@ public class ODLController implements DataChangeListener,
     }
   }
 
-  public void sendPacket(byte[] data, int... ports) {
+  public void sendPacket(byte[] data, int inSwitch, int inPort, int... ports) {
     System.out.println("sendPacket Called in handler");
 
     if (ports[0] == Integer.MAX_VALUE) {
         int MAGIC_PORT_NUM = 1; // TODO: fill this in properly eventually.
-      flood(data, ingressPlaceHolder(MAGIC_PORT_NUM));
+      flood(data, ingressPlaceHolder(inPort));
       return;
     }
 
@@ -324,7 +324,7 @@ public class ODLController implements DataChangeListener,
                 nodePath.firstKeyOf(Node.class, NodeKey.class),
                 ports[i] + "");
         //System.out.println("sendPacket.ncRef: " + ncRef);
-        sendPacketOut(data, ingressPlaceHolder(ports[i]), ncRef);
+        sendPacketOut(data, ingressPlaceHolder(inPort), ncRef);
     }
 
   }
