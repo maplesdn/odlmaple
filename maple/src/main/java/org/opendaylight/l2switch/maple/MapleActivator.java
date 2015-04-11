@@ -30,13 +30,11 @@ import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/*
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NetworkTopology;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TopologyId;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.Topology;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.TopologyKey;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Link;
-*/
 
 /**
  * Maple activator.
@@ -55,6 +53,8 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
   private ListenerRegistration<NotificationListener> notificationListenerReg;
   /* Listener for data-change events. */
   private ListenerRegistration<DataChangeListener> dataChangeListenerReg;
+
+  private static final String TOPOLOGY_NAME = "flow:1";
 
   @Override
   protected void startImpl(BundleContext context) {
@@ -76,25 +76,8 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
 
     NotificationService ns = session.getSALService(NotificationService.class);
     this.notificationListenerReg = ns.registerNotificationListener(this.controller);
-/*
-    String topoIdentifier = InstanceIdentifier
-      .builder(NetworkTopology.class)
-      .toInstance();
-    InstanceIdentifier<Link> linkInstance = InstanceIdentifier
-      .builder(NetworkTopology.class)
-      .child(Topology.class,
-        new TopologyKey(new TopologyId(topoIdentifier)))
-      .child(Link.class)
-      .build();
 
-    this.dataChangeListenerReg = db.registerDataChangeListener(
-      LogicalDatastoreType.OPERATIONAL,
-      linkInstance,
-      this.controller,
-      DataChangeScope.BASE
-    );
-*/
-
+    /* Add listener for switch changes. */
     this.dataChangeListenerReg = db.registerDataChangeListener(
       LogicalDatastoreType.OPERATIONAL,
       InstanceIdentifier.builder(Nodes.class)
@@ -103,6 +86,18 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
         .child(Table.class).build(),
       this.controller,
       DataChangeScope.SUBTREE);
+
+    /* Add listener for link changes. See:
+     * ./loopremover/implementation/src/main/java/org/opendaylight/l2switch/loopremover/topology/TopologyLinkDataChangeHandler.java
+     * ./hosttracker/implementation/src/main/java/org/opendaylight/l2switch/hosttracker/plugin/internal/HostTrackerImpl.java
+     */
+    this.dataChangeListenerReg = db.registerDataChangeListener(
+      LogicalDatastoreType.OPERATIONAL,
+      InstanceIdentifier.builder(NetworkTopology.class)
+        .child(Topology.class, new TopologyKey(new TopologyId(TOPOLOGY_NAME)))
+        .child(Link.class).build(),
+      this.controller,
+      DataChangeScope.BASE);
 
     this.controller.start();
   }
