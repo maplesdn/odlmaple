@@ -148,7 +148,7 @@ public class InitialFlowWriter implements OpendaylightInventoryListener {
       InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
       //add drop all flow
-      writeFlowToController(nodeId, tableId, flowId, createDropAllFlow(flowTableId, flowPriority));
+      //writeFlowToController(nodeId, tableId, flowId, createDropAllFlow(flowTableId, flowPriority));
 
       _logger.debug("Added initial flows for node {} ", nodeId);
     }

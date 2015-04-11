@@ -243,7 +243,7 @@ public class ODLController implements DataChangeListener,
     nodeId = nodePath.firstKeyOf(Node.class, NodeKey.class).getId();
     mac2portMapping = new HashMap<>();
     coveredMacPaths = new HashSet<>();
-
+/*
     // start forwarding all packages to controller
     FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
     FlowKey flowKey = new FlowKey(flowId);
@@ -257,6 +257,7 @@ public class ODLController implements DataChangeListener,
 
     LOG.debug("writing packetForwardToController flow");
     dataStoreAccessor.writeFlowToConfig(flowPath, allToCtrlFlow.build());
+*/
   }
 
   @Override
@@ -329,8 +330,6 @@ public class ODLController implements DataChangeListener,
   }
 
   private void flood(byte[] payload, NodeConnectorRef ingress) {
-    // System.out.println("trying to flood the switch, but nodePath is not defined");
-    // return;
     NodeConnectorKey nodeConnectorKey = new NodeConnectorKey(nodeConnectorId("0xfffffffb"));
     InstanceIdentifier<?> nodeConnectorPath = InstanceIdentifierUtils.createNodeConnectorPath(nodePath, nodeConnectorKey);
     NodeConnectorRef egressConnectorRef = new NodeConnectorRef(nodeConnectorPath);

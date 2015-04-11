@@ -55,10 +55,10 @@ public class ReactiveFlowWriter implements ArpPacketListener {
     }
     MacAddress destMac = ethernetPacket.getDestinationMac();
     if(!MAC_TO_IGNORE.equals(destMac)) {
-      writeFlows(packetReceived.getPayload(),
-          rawPacket.getIngress(),
-          ethernetPacket.getSourceMac(),
-          ethernetPacket.getDestinationMac());
+      //writeFlows(packetReceived.getPayload(),
+      //    rawPacket.getIngress(),
+      //    ethernetPacket.getSourceMac(),
+      //    ethernetPacket.getDestinationMac());
     }
   }
 
