@@ -51,7 +51,14 @@ import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.controller.md.sal.binding.api.DataChangeListener;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeEvent;
 
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRemoved;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorUpdated;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeRemoved;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeUpdated;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.OpendaylightInventoryListener;
+
 public class ODLController implements DataChangeListener,
+                                      OpendaylightInventoryListener,
                                       PacketProcessingListener,
                                       Controller {
 
@@ -77,6 +84,8 @@ public class ODLController implements DataChangeListener,
 
   private Map<Integer, NodeConnectorRef> port2NodeConnectorRef;
 
+  private static final String LOCAL_PORT_STR = "LOCAL";
+
   /* Given from Activator. */
 
   private PacketProcessingService pps;
@@ -93,7 +102,57 @@ public class ODLController implements DataChangeListener,
     this.dataStoreAccessor = dataStoreAccessor;
   }
 
-  /* Implements PacketProcessingListener. */
+  /* Implements OpendaylightInventoryListener. */
+
+  @Override
+  public void onNodeConnectorRemoved(NodeConnectorRemoved notification) {
+    NodeConnectorRef ncr = notification.getNodeConnectorRef();
+    String portID = ncr
+      .getValue()
+      .firstIdentifierOf(NodeConnector.class)
+      .firstKeyOf(NodeConnector.class, NodeConnectorKey.class)
+      .getId()
+      .getValue();
+
+    if (portID.contains(LOCAL_PORT_STR))
+      return;
+
+    int portNum = portStrToInt(portID);
+    port2NodeConnectorRef.remove(portNum);
+    this.maple.portDown(portNum);
+
+    System.out.println("NodeConnectorRef " + notification.getNodeConnectorRef());
+  }
+
+  @Override
+  public void onNodeConnectorUpdated(NodeConnectorUpdated notification) {
+    NodeConnectorRef ncr = notification.getNodeConnectorRef();
+    String portID = ncr
+      .getValue()
+      .firstIdentifierOf(NodeConnector.class)
+      .firstKeyOf(NodeConnector.class, NodeConnectorKey.class)
+      .getId()
+      .getValue();
+
+    if (portID.contains(LOCAL_PORT_STR))
+      return;
+
+    int portNum = portStrToInt(portID);
+    port2NodeConnectorRef.put(portNum, ncr);
+    this.maple.portUp(portNum);
+
+    System.out.println("NodeConnectorRef " + notification.getNodeConnectorRef());
+  }
+
+  @Override
+  public void onNodeRemoved(NodeRemoved notification) {
+    System.out.println("NodeRef " + notification.getNodeRef());
+  }
+
+  @Override
+  public void onNodeUpdated(NodeUpdated notification) {
+    System.out.println("NodeRef " + notification.getNodeRef());
+  }
 
   @Override
   public void onPacketReceived(PacketReceived packet) {
@@ -114,70 +173,30 @@ public class ODLController implements DataChangeListener,
     if (ingress == null)
       return;
 
-    String switchID = ingress
-        .getValue()
-        .firstIdentifierOf(Node.class)
-        .firstKeyOf(Node.class, NodeKey.class)
-        .getId()
-        .getValue();
     String portID = ingress
-        .getValue()
-        .firstIdentifierOf(NodeConnector.class)
-        .firstKeyOf(NodeConnector.class, NodeConnectorKey.class)
-        .getId()
-        .getValue();
+      .getValue()
+      .firstIdentifierOf(NodeConnector.class)
+      .firstKeyOf(NodeConnector.class, NodeConnectorKey.class)
+      .getId()
+      .getValue();
 
-    int switchNum = Integer.parseInt(portID.substring(
-        portID.indexOf(':') + 1, portID.lastIndexOf(':')));
-    int portNum = Integer.parseInt(portID.substring(
-        portID.lastIndexOf(':') + 1));
+    int switchNum = switchStrToInt(portID);
+    int portNum = portStrToInt(portID);
 
     MacAddress dstMac = PacketUtils.rawMacToMac(dstMacRaw);
     MacAddress srcMac = PacketUtils.rawMacToMac(srcMacRaw);
-    port2NodeConnectorRef.put(portNum, ingress);
     System.out.println("Mapping portNum "+portNum+" to NodeConnectorRef. ");
     this.maple.handlePacket(data, switchNum, portNum);
+  }
 
-/*
-    NodeConnectorKey ingressKey = InstanceIdentifierUtils.getNodeConnectorKey(notification.getIngress().getValue());
+  private static int switchStrToInt(String switchStr) {
+    return Integer.parseInt(switchStr.substring(
+      switchStr.indexOf(':') + 1, switchStr.lastIndexOf(':')));
+  }
 
-      //LOG.debug("Received packet from MAC match: {}, ingress: {}", srcMac, ingressKey.getId());
-      //LOG.debug("Received packet to   MAC match: {}", dstMac);
-      //LOG.debug("Ethertype: {}", Integer.toHexString(0x0000ffff & ByteBuffer.wrap(etherType).getShort()));
-
-      // learn by IPv4 traffic only
-    if (Arrays.equals(ETH_TYPE_IPV4, etherType)) {
-        NodeConnectorRef previousPort = mac2portMapping.put(srcMac, notification.getIngress());
-        if (previousPort != null && !notification.getIngress().equals(previousPort)) {
-            NodeConnectorKey previousPortKey = InstanceIdentifierUtils.getNodeConnectorKey(previousPort.getValue());
-            LOG.debug("mac2port mapping changed by mac {}: {} -> {}", srcMac, previousPortKey, ingressKey.getId());
-        }
-        // if dst MAC mapped:
-        NodeConnectorRef destNodeConnector = mac2portMapping.get(dstMac);
-        if (destNodeConnector != null) {
-            synchronized (coveredMacPaths) {
-                if (!destNodeConnector.equals(notification.getIngress())) {
-                    // add flow
-                    addBridgeFlow(srcMac, dstMac, destNodeConnector);
-                    addBridgeFlow(dstMac, srcMac, notification.getIngress());
-                } else {
-                    LOG.debug("useless rule ignoring - both MACs are behind the same port");
-                }
-            }
-            LOG.debug("packetIn-directing.. to {}",
-                    InstanceIdentifierUtils.getNodeConnectorKey(destNodeConnector.getValue()).getId());
-            sendPacketOut(notification.getPayload(), notification.getIngress(), destNodeConnector);
-        } else {
-            // flood
-            LOG.debug("packetIn-still flooding.. ");
-            flood(notification.getPayload(), notification.getIngress());
-        }
-    } else {
-        // non IPv4 package
-        flood(notification.getPayload(), notification.getIngress());
-    }
-*/
-
+  private static int portStrToInt(String portStr) {
+    return Integer.parseInt(portStr.substring(
+      portStr.lastIndexOf(':') + 1));
   }
 
   /**
@@ -204,21 +223,11 @@ public class ODLController implements DataChangeListener,
     LOG.debug("stop() <--");
   }
  
-    // similar to flood(), create a NodeConnectorRef as a placeholder for ingress
   private NodeConnectorRef ingressPlaceHolder(int portNum) {
-    if (port2NodeConnectorRef.get(portNum) != null) {
+    if (port2NodeConnectorRef.containsKey(portNum))
       return port2NodeConnectorRef.get(portNum);
-    } else {
-      NodeConnectorUpdatedBuilder ncub = new NodeConnectorUpdatedBuilder();
-      NodeConnectorId nodeConnectorId = new NodeConnectorId("portName");
-
-      NodeId nodeId = new NodeId("node_001");
-      InstanceIdentifier<NodeConnector> instanceIdentifier = InstanceIdentifier.builder(Nodes.class)
-                  .child(Node.class, new NodeKey(nodeId))
-                  .child(NodeConnector.class, new NodeConnectorKey(nodeConnectorId)).toInstance();
-      NodeConnectorRef nodeConnectorRef = new NodeConnectorRef(instanceIdentifier);
-      return nodeConnectorRef;
-    }
+    else
+      throw new IllegalArgumentException("portNum " + portNum + " does not exist in map");
   }
 
   public synchronized void onSwitchAppeared(InstanceIdentifier<Table> appearedTablePath) {
@@ -236,7 +245,6 @@ public class ODLController implements DataChangeListener,
       }
     }
 */
-
 
     tablePath = appearedTablePath;
     nodePath = tablePath.firstIdentifierOf(Node.class);
@@ -313,18 +321,16 @@ public class ODLController implements DataChangeListener,
     System.out.println("sendPacket Called in handler");
 
     if (ports[0] == Integer.MAX_VALUE) {
-        int MAGIC_PORT_NUM = 1; // TODO: fill this in properly eventually.
       flood(data, ingressPlaceHolder(inPort));
       return;
     }
 
     for (int i = 0; i < ports.length; i++) {
-        NodeConnectorRef ncRef = PacketUtils.createNodeConnRef(
-                nodePath,
-                nodePath.firstKeyOf(Node.class, NodeKey.class),
-                ports[i] + "");
-        //System.out.println("sendPacket.ncRef: " + ncRef);
-        sendPacketOut(data, ingressPlaceHolder(inPort), ncRef);
+      NodeConnectorRef ncRef = PacketUtils.createNodeConnRef(
+        nodePath,
+        nodePath.firstKeyOf(Node.class, NodeKey.class),
+        ports[i] + "");
+      sendPacketOut(data, ingressPlaceHolder(inPort), ncRef);
     }
 
   }
@@ -346,11 +352,11 @@ public class ODLController implements DataChangeListener,
   private void sendPacketOut(byte[] payload, NodeConnectorRef ingress, NodeConnectorRef egress) {
     InstanceIdentifier<Node> egressNodePath = InstanceIdentifierUtils.getNodePath(egress.getValue());
     TransmitPacketInput input = new TransmitPacketInputBuilder()
-              .setPayload(payload)
-              .setNode(new NodeRef(egressNodePath))
-              .setEgress(egress)
-              .setIngress(ingress)
-              .build();
+      .setPayload(payload)
+      .setNode(new NodeRef(egressNodePath))
+      .setEgress(egress)
+      .setIngress(ingress)
+      .build();
     pps.transmitPacket(input);
   }
 }
