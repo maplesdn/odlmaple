@@ -11,6 +11,9 @@ package org.opendaylight.l2switch.maple;
 import org.maple.core.Controller;
 import org.maple.core.MapleSystem;
 
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
+
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorUpdatedBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
 import java.math.BigInteger;
@@ -83,6 +86,7 @@ public class ODLController implements DataChangeListener,
 
   private NodeId nodeId;
   private AtomicLong flowIdInc = new AtomicLong();
+  private short flowTableId;
   private AtomicLong flowCookieInc = new AtomicLong(0x2a00000000000000L);
 
   private InstanceIdentifier<Node> nodePath;
@@ -198,6 +202,9 @@ public class ODLController implements DataChangeListener,
     MacAddress srcMac = PacketUtils.rawMacToMac(srcMacRaw);
     System.out.println("Mapping portNum "+portNum+" to NodeConnectorRef. ");
     this.maple.handlePacket(data, switchNum, portNum);
+
+    System.out.println("adding flow");
+    addBridgeFlow(dstMac, srcMac, ingress);
   }
 
   private static int switchStrToInt(String switchStr) {
@@ -221,6 +228,9 @@ public class ODLController implements DataChangeListener,
     port2NodeConnectorRef = new HashMap<>();
 
     this.nodePath = InstanceIdentifierUtils.createNodePath(new NodeId("node_001"));
+    this.flowTableId = (short)0;
+    this.tablePath = InstanceIdentifierUtils.createTablePath(nodePath, new TableKey((short)0));
+    this.nodeId = nodePath.firstKeyOf(Node.class, NodeKey.class).getId();
 
     LOG.debug("start() <--");
   }
@@ -255,7 +265,6 @@ public class ODLController implements DataChangeListener,
         LOG.error("closing registration upon flowCapable node update listener failed: " + e.getMessage(), e);
       }
     }
-*/
 
     tablePath = appearedTablePath;
     nodePath = tablePath.firstIdentifierOf(Node.class);
@@ -267,13 +276,11 @@ public class ODLController implements DataChangeListener,
     FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
     FlowKey flowKey = new FlowKey(flowId);
     InstanceIdentifier<Flow> flowPath = InstanceIdentifierUtils.createFlowPath(tablePath, flowKey);
-
     int priority = 4;
     // create flow in table with id = 0, priority = 4 (other params are
     // defaulted in OFDataStoreUtil)
     FlowBuilder allToCtrlFlow = FlowUtils.createFwdAllToControllerFlow(
             InstanceIdentifierUtils.getTableId(tablePath), priority, flowId);
-
     InstanceIdentifier<Table> tableInstanceId = flowPath.<Table>firstIdentifierOf(Table.class);
     InstanceIdentifier<Node> nodeInstanceId = flowPath.<Node>firstIdentifierOf(Node.class);
 
@@ -285,7 +292,10 @@ public class ODLController implements DataChangeListener,
     builder.setFlowTable(new FlowTableRef(tableInstanceId));
     builder.setTransactionUri(new Uri(f.getId().getValue()));
     //return fs.addFlow(builder.build());
-    //dataStoreAccessor.writeFlowToConfig(flowPath, allToCtrlFlow.build());
+    dataStoreAccessor.writeFlowToConfig(flowPath, allToCtrlFlow.build());
+    System.out.println("writing flow to switch");
+    writeFlowToSwitch(nodeId, allToCtrlFlow.build());
+*/
     return null;
 
   }
@@ -353,27 +363,36 @@ public class ODLController implements DataChangeListener,
     pps.transmitPacket(input);
   }
 
-/*
   private void addBridgeFlow(MacAddress srcMac, MacAddress dstMac, NodeConnectorRef destNodeConnector) {
-    synchronized (coveredMacPaths) {
-      String macPath = srcMac.toString() + dstMac.toString();
-      if (!coveredMacPaths.contains(macPath)) {
-        LOG.debug("covering mac path: {} by [{}]", macPath,
-                  destNodeConnector.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId());
+    String macPath = srcMac.toString() + dstMac.toString();
+    FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
+    FlowKey flowKey = new FlowKey(flowId);
+    InstanceIdentifier<Flow> flowPath = InstanceIdentifierUtils.createFlowPath(tablePath, flowKey);
 
-        coveredMacPaths.add(macPath);
-        FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
-        FlowKey flowKey = new FlowKey(flowId);
-        InstanceIdentifier<Flow> flowPath = InstanceIdentifierUtils.createFlowPath(tablePath, flowKey);
+    Short tableId = InstanceIdentifierUtils.getTableId(tablePath);
+    FlowBuilder srcToDstFlow = FlowUtils.createDirectMacToMacFlow(tableId, DIRECT_FLOW_PRIORITY, srcMac,
+      dstMac, destNodeConnector);
+    srcToDstFlow.setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())));
 
-        Short tableId = InstanceIdentifierUtils.getTableId(tablePath);
-        FlowBuilder srcToDstFlow = FlowUtils.createDirectMacToMacFlow(tableId, DIRECT_FLOW_PRIORITY, srcMac,
-                      dstMac, destNodeConnector);
-        srcToDstFlow.setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())));
-
-        dataStoreAccessor.writeFlowToConfig(flowPath, srcToDstFlow.build());
-      }
-    }
+    writeFlowToSwitch(this.nodeId, srcToDstFlow.build());
+    dataStoreAccessor.writeFlowToConfig(flowPath, srcToDstFlow.build());
   }
-*/
+
+    private Future<RpcResult<AddFlowOutput>> writeFlowToSwitch(NodeId nodeId, Flow flow) {
+      InstanceIdentifier<Node> nodeInstanceId = InstanceIdentifier.<Nodes>builder(Nodes.class)
+          .<Node, NodeKey>child(Node.class, new NodeKey(nodeId)).build();
+      InstanceIdentifier<Table> tableInstanceId = nodeInstanceId.<FlowCapableNode>augmentation(FlowCapableNode.class)
+          .<Table, TableKey>child(Table.class, new TableKey(flowTableId));
+      InstanceIdentifier<Flow> flowPath = tableInstanceId
+          .<Flow, FlowKey>child(Flow.class, new FlowKey(new FlowId(String.valueOf(flowIdInc.getAndIncrement()))));
+
+      final AddFlowInputBuilder builder = new AddFlowInputBuilder(flow)
+          .setNode(new NodeRef(nodeInstanceId))
+          .setFlowTable(new FlowTableRef(tableInstanceId))
+          .setFlowRef(new FlowRef(flowPath))
+          .setTransactionUri(new Uri(flow.getId().getValue()));
+      return fs.addFlow(builder.build());
+    }
+
+
 }
