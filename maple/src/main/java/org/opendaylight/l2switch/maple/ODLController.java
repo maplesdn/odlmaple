@@ -10,12 +10,14 @@ package org.opendaylight.l2switch.maple;
 
 import org.maple.core.Controller;
 import org.maple.core.MapleSystem;
+import org.maple.core.Rule;
 
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorUpdatedBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -326,6 +328,12 @@ public class ODLController implements DataChangeListener,
       sendPacketOut(data, ingressPlaceHolder(inPort), ncRef);
     }
 
+  }
+
+  public void installRules(LinkedList<Rule> rules, int... outSwitches) {
+    for (int i = 0; i < outSwitches.length; i++) {
+      System.out.println("Sending " + rules + " to switches: " + outSwitches[i]);
+    }
   }
 
   private void flood(byte[] payload, NodeConnectorRef ingress) {
