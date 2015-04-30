@@ -343,21 +343,18 @@ public class ODLController implements DataChangeListener,
       return;
 
     //MacAddress srcMac = this.portToMacAddress.get(???);
-    long dstMacLong = 0;
+    long dstMacLong;
     Iterator<TraceItem> matchIterator = rule.match.fieldValues.iterator();
     while (matchIterator.hasNext()) {
       TraceItem item = matchIterator.next();
+      // System.out.println("Rule match with item: " + item.toString());
       if(item.field == TraceItem.Field.ETH_DST)
         dstMacLong = item.value;
     }
-    byte[] longToBytes = ByteBuffer.allocate(8).putLong(dstMacLong).array();
-    byte[] dstMacBytes = new byte[6];
-    for (int i = 0; i < dstMacBytes.length; i++)
-      dstMacBytes[i] = longToBytes[i + 2];
-    MacAddress dstMac = PacketUtils.rawMacToMac(dstMacBytes);
-
+    // TODO: write a method to convert dstMaclong into MacAddress
     MacAddress srcMac = null;
-
+    MacAddress dstMac = this.portToMacAddress.get(outPort);
+    // System.out.println("Installing toPort rule"+rule.toString());
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
     InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
