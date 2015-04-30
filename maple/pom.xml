@@ -59,9 +59,9 @@
         <extensions>true</extensions>
         <configuration>
           <instructions>
-            <Bundle-SymbolicName>${pom.groupId}</Bundle-SymbolicName>
-            <Bundle-Name>${pom.name}</Bundle-Name>
-            <Bundle-Version>${pom.version}</Bundle-Version>
+            <Bundle-SymbolicName>${project.groupId}</Bundle-SymbolicName>
+            <Bundle-Name>${project.name}</Bundle-Name>
+            <Bundle-Version>${project.version}</Bundle-Version>
             <Bundle-Activator>org.opendaylight.l2switch.maple.MapleActivator</Bundle-Activator>
             <Private-Package>org.opendaylight.l2switch.maple</Private-Package>
           </instructions>
