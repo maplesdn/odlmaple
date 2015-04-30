@@ -98,50 +98,67 @@ public class FlowUtils {
      * @param dstPort
      * @return {@link FlowBuilder} forwarding all packets to controller port
      */
-    public static FlowBuilder createDirectMacToMacFlow(final Short tableId, final int priority, final MacAddress srcMac,
-            final MacAddress dstMac, final NodeConnectorRef dstPort) {
-        FlowBuilder macToMacFlow = new FlowBuilder()
+    public static FlowBuilder createToPortFlow(Short tableId, int priority,
+            MacAddress srcMac, MacAddress dstMac, NodeConnectorRef dstPort) {
+
+        FlowBuilder toPort = new FlowBuilder()
                 .setTableId(tableId)
-                .setFlowName("mac2mac");
-        macToMacFlow.setId(new FlowId(Long.toString(macToMacFlow.hashCode())));
+                .setFlowName("toPort");
+
+        toPort.setId(new FlowId(Long.toString(toPort.hashCode())));
 
         EthernetMatch ethernetMatch = new EthernetMatchBuilder()
-                .setEthernetSource(new EthernetSourceBuilder()
-                        .setAddress(srcMac)
-                        .build())
-                .setEthernetDestination(new EthernetDestinationBuilder()
-                        .setAddress(dstMac)
-                        .build())
-                .build();
+          .setEthernetSource(new EthernetSourceBuilder()
+             .setAddress(srcMac)
+             .build())
+          .setEthernetDestination(new EthernetDestinationBuilder()
+             .setAddress(dstMac)
+             .build())
+          .build();
 
-        MatchBuilder match = new MatchBuilder();
-        match.setEthernetMatch(ethernetMatch);
+        MatchBuilder matchBuilder = new MatchBuilder();
+        //matchBuilder.setEthernetMatch(ethernetMatch);
+        Match match = matchBuilder.build();
 
         Uri outputPort = dstPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
 
-        Action outputToControllerAction = new ActionBuilder()
+        Action toPortAction = new ActionBuilder()
                 .setOrder(0)
                 .setAction(new OutputActionCaseBuilder()
-                        .setOutputAction(new OutputActionBuilder()
-                                .setMaxLength(Integer.valueOf(0xffff))
-                                .setOutputNodeConnector(outputPort)
-                                .build())
-                        .build())
+                   .setOutputAction(new OutputActionBuilder()
+                      .setMaxLength(Integer.valueOf(0xffff))
+                      .setOutputNodeConnector(outputPort)
+                      .build())
+                   .build())
                 .build();
 
-        // Create an Apply Action
-        ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(outputToControllerAction))
-                .build();
 
-        // Wrap our Apply Action in an Instruction
-        Instruction applyActionsInstruction = new InstructionBuilder()
-                .setOrder(0)
-                .setInstruction(new ApplyActionsCaseBuilder()
-                        .setApplyActions(applyActions)
-                        .build())
-                .build();
+      // Create an Apply Action
+      ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(toPortAction))
+          .build();
 
-        return macToMacFlow;
+      // Wrap our Apply Action in an Instruction
+      Instruction applyActionsInstruction = new InstructionBuilder() //
+          .setOrder(0)
+          .setInstruction(new ApplyActionsCaseBuilder()//
+              .setApplyActions(applyActions) //
+              .build()) //
+          .build();
+
+      // Put our Instruction in a list of Instructions
+      toPort
+          .setMatch(match) //
+          .setInstructions(new InstructionsBuilder() //
+              .setInstruction(ImmutableList.of(applyActionsInstruction)) //
+              .build()) //
+          .setPriority(priority) //
+          .setBufferId(0xffffffffL) //
+          .setHardTimeout(0) //
+          .setIdleTimeout(0) //
+          .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
+          .setFlags(new FlowModFlags(false, false, false, false, false));
+
+      return toPort;
     }
 
     /**

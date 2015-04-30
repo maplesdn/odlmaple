@@ -98,11 +98,8 @@ public class ODLController implements DataChangeListener,
   private InstanceIdentifier<Node> nodePath;
   private InstanceIdentifier<Table> tablePath;
 
-  private Map<MacAddress, NodeConnectorRef> mac2portMapping;
-  private Set<String> coveredMacPaths;
-
-  private Map<Integer, NodeConnectorRef> port2NodeConnectorRef;
-  private Map<Integer, MacAddress> port2MacAddress;
+  private Map<Integer, NodeConnectorRef> portToNodeConnectorRef;
+  private Map<Integer, MacAddress> portToMacAddress;
 
   private static final String LOCAL_PORT_STR = "LOCAL";
 
@@ -140,7 +137,7 @@ public class ODLController implements DataChangeListener,
       return;
 
     int portNum = portStrToInt(portID);
-    port2NodeConnectorRef.remove(portNum);
+    this.portToNodeConnectorRef.remove(portNum);
     this.maple.portDown(portNum);
 
     System.out.println("NodeConnectorRef " + notification.getNodeConnectorRef());
@@ -160,7 +157,7 @@ public class ODLController implements DataChangeListener,
       return;
 
     int portNum = portStrToInt(portID);
-    port2NodeConnectorRef.put(portNum, ncr);
+    this.portToNodeConnectorRef.put(portNum, ncr);
     this.maple.portUp(portNum);
 
     System.out.println("NodeConnectorRef " + notification.getNodeConnectorRef());
@@ -208,7 +205,8 @@ public class ODLController implements DataChangeListener,
     MacAddress dstMac = PacketUtils.rawMacToMac(dstMacRaw);
     MacAddress srcMac = PacketUtils.rawMacToMac(srcMacRaw);
 
-    
+    this.portToMacAddress.put(portNum, srcMac);
+
     System.out.println("Mapping portNum "+portNum+" to NodeConnectorRef. ");
     this.maple.handlePacket(data, switchNum, portNum);
   }
@@ -231,8 +229,8 @@ public class ODLController implements DataChangeListener,
 
     this.maple = new MapleSystem(this);
     System.out.println("Maple Initiated");
-    port2NodeConnectorRef = new HashMap<>();
-    mac2portMapping = new HashMap<>();
+    this.portToNodeConnectorRef = new HashMap<>();
+    this.portToMacAddress = new HashMap<>();
 
     this.nodePath = InstanceIdentifierUtils.createNodePath(new NodeId("node_001"));
 
@@ -249,8 +247,8 @@ public class ODLController implements DataChangeListener,
   }
  
   private NodeConnectorRef ingressPlaceHolder(int portNum) {
-    if (port2NodeConnectorRef.containsKey(portNum))
-      return port2NodeConnectorRef.get(portNum);
+    if (this.portToNodeConnectorRef.containsKey(portNum))
+      return this.portToNodeConnectorRef.get(portNum);
     else
       throw new IllegalArgumentException("portNum " + portNum + " does not exist in map");
   }
@@ -358,32 +356,44 @@ public class ODLController implements DataChangeListener,
   private void installToPortRule(Rule rule, int outSwitch, int outPort) {
     /* TODO: add match. */
     System.out.println("adding toPort rule");
+    NodeConnectorRef dstPort = this.portToNodeConnectorRef.get(outPort);
+    if (dstPort == null)
+      return;
+
+    //MacAddress srcMac = this.portToMacAddress.get(???);
+    MacAddress srcMac = null;
+    MacAddress dstMac = this.portToMacAddress.get(outPort);
+
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
     InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
     Future<RpcResult<AddFlowOutput>> result;
     result = writeFlowToController(this.nodePath, tableId, flowId,
-      FlowUtils.createPuntAllFlow(this.flowTableId, rule.priority).build());
+      FlowUtils.createToPortFlow(this.flowTableId, rule.priority,
+        srcMac, dstMac, dstPort).build());
   }
 
   public void installRules(LinkedList<Rule> rules, int... outSwitches) {
     for (Rule rule : rules) {
-      for (Action action : rule.actions)
+      for (Action action : rule.actions) {
 
-        if (action instanceof Drop)
+        if (action instanceof Drop) {
           for (int i = 0; i < outSwitches.length; i++)
             installDropRule(rule, outSwitches[i]);
 
-        else if (action instanceof Punt)
+        } else if (action instanceof Punt) {
           for (int i = 0; i < outSwitches.length; i++)
             installPuntRule(rule, outSwitches[i]);
 
-        else if (action instanceof ToPort)
+        } else if (action instanceof ToPort) {
+          int outPort = ((ToPort)action).portID;
           for (int i = 0; i < outSwitches.length; i++)
-            installToPortRule(rule, outSwitches[i], ((ToPort)action).portID);
+            installToPortRule(rule, outSwitches[i], outPort);
 
-        else
+        } else {
           throw new IllegalArgumentException("unknown rule type: " + rule);
+        }
+      }
     }
   }
 
