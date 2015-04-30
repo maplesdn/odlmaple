@@ -83,10 +83,6 @@ public class ODLController implements DataChangeListener,
 
   protected static final Logger LOG = LoggerFactory.getLogger(ODLController.class);
 
-  private static final byte[] ETH_TYPE_IPV4 = new byte[] { 0x08, 0x00 };
-
-  private static final int DIRECT_FLOW_PRIORITY = 512;
-
   private MapleSystem maple;
 
   private FlowCommitWrapper dataStoreAccessor;
@@ -333,7 +329,6 @@ public class ODLController implements DataChangeListener,
 
   private void installDropRule(Rule rule, int outSwitch) {
     /* TODO: add match. */
-    System.out.println("adding drop rule");
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
     InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
@@ -344,7 +339,6 @@ public class ODLController implements DataChangeListener,
 
   private void installPuntRule(Rule rule, int outSwitch) {
      /* TODO: add match. */
-    System.out.println("adding punt rule");
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
     InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
@@ -355,7 +349,6 @@ public class ODLController implements DataChangeListener,
 
   private void installToPortRule(Rule rule, int outSwitch, int outPort) {
     /* TODO: add match. */
-    System.out.println("adding toPort rule");
     NodeConnectorRef dstPort = this.portToNodeConnectorRef.get(outPort);
     if (dstPort == null)
       return;

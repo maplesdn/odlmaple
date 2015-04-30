@@ -45,171 +45,169 @@ public class FlowUtils {
 
   private static AtomicLong flowCookieInc = new AtomicLong(0x2a00000000000000L);
 
-    public static FlowBuilder createDropAllFlow(Short tableId, int priority) {
-      // start building flow
-      FlowBuilder dropAll = new FlowBuilder() //
-          .setTableId(tableId) //
-          .setFlowName("dropall");
+  /**
+   * @param tableId
+   * @param priority
+   * @return {@link FlowBuilder} dropping all packets
+   */
+  public static FlowBuilder createDropAllFlow(Short tableId, int priority) {
 
-      // use its own hash code for id.
-      dropAll.setId(new FlowId(Long.toString(dropAll.hashCode())));
+    FlowBuilder dropAll = new FlowBuilder()
+      .setTableId(tableId)
+      .setFlowName("dropall");
 
-      Match match = new MatchBuilder().build();
+    dropAll.setId(new FlowId(Long.toString(dropAll.hashCode())));
 
+    Match match = new MatchBuilder().build();
 
-      Action dropAllAction = new ActionBuilder() //
-          .setOrder(0)
-          .setAction(new DropActionCaseBuilder().build())
-          .build();
+    Action dropAllAction = new ActionBuilder()
+      .setOrder(0)
+      .setAction(new DropActionCaseBuilder().build())
+      .build();
 
-      // Create an Apply Action
-      ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(dropAllAction))
-          .build();
+    ApplyActions applyActions = new ApplyActionsBuilder()
+      .setAction(ImmutableList.of(dropAllAction))
+      .build();
 
-      // Wrap our Apply Action in an Instruction
-      Instruction applyActionsInstruction = new InstructionBuilder() //
-          .setOrder(0)
-          .setInstruction(new ApplyActionsCaseBuilder()//
-              .setApplyActions(applyActions) //
-              .build()) //
-          .build();
+    Instruction applyActionsInstruction = new InstructionBuilder()
+      .setOrder(0)
+      .setInstruction(new ApplyActionsCaseBuilder()
+      .setApplyActions(applyActions)
+      .build())
+      .build();
 
-      // Put our Instruction in a list of Instructions
-      dropAll
-          .setMatch(match) //
-          .setInstructions(new InstructionsBuilder() //
-              .setInstruction(ImmutableList.of(applyActionsInstruction)) //
-              .build()) //
-          .setPriority(priority) //
-          .setBufferId(0xffffffffL) //
-          .setHardTimeout(0) //
-          .setIdleTimeout(0) //
-          .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
-          .setFlags(new FlowModFlags(false, false, false, false, false));
+    dropAll
+      .setMatch(match)
+      .setInstructions(new InstructionsBuilder()
+         .setInstruction(ImmutableList.of(applyActionsInstruction))
+         .build())
+      .setPriority(priority)
+      .setBufferId(0xffffffffL)
+      .setHardTimeout(0)
+      .setIdleTimeout(0)
+      .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
+      .setFlags(new FlowModFlags(false, false, false, false, false));
 
-      return dropAll;
-    }
+    return dropAll;
+  }
 
-    /**
-     * @param tableId
-     * @param priority
-     * @param srcMac
-     * @param dstMac
-     * @param dstPort
-     * @return {@link FlowBuilder} forwarding all packets to controller port
-     */
-    public static FlowBuilder createToPortFlow(Short tableId, int priority,
-            MacAddress srcMac, MacAddress dstMac, NodeConnectorRef dstPort) {
+  /**
+   * @param tableId
+   * @param priority
+   * @return {@link FlowBuilder} forwarding all packets to controller port
+   */
+  public static FlowBuilder createPuntAllFlow(Short tableId, int priority) {
+    FlowBuilder puntAll = new FlowBuilder()
+      .setTableId(tableId)
+      .setFlowName("puntall");
 
-        FlowBuilder toPort = new FlowBuilder()
-                .setTableId(tableId)
-                .setFlowName("toPort");
+    puntAll.setId(new FlowId(Long.toString(puntAll.hashCode())));
 
-        toPort.setId(new FlowId(Long.toString(toPort.hashCode())));
+    Match match = new MatchBuilder().build();
 
-        EthernetMatch ethernetMatch = new EthernetMatchBuilder()
-          .setEthernetSource(new EthernetSourceBuilder()
-             .setAddress(srcMac)
-             .build())
-          .setEthernetDestination(new EthernetDestinationBuilder()
-             .setAddress(dstMac)
-             .build())
-          .build();
+    OutputActionBuilder output = new OutputActionBuilder();
+    output.setMaxLength(Integer.valueOf(0xffff));
+    Uri controllerPort = new Uri(OutputPortValues.CONTROLLER.toString());
+    output.setOutputNodeConnector(controllerPort);
 
-        MatchBuilder matchBuilder = new MatchBuilder();
-        //matchBuilder.setEthernetMatch(ethernetMatch);
-        Match match = matchBuilder.build();
+    Action puntAllAction = new ActionBuilder()
+      .setOrder(0)
+      .setAction(new OutputActionCaseBuilder()
+        .setOutputAction(output.build()).build())
+      .build();
 
-        Uri outputPort = dstPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
+    ApplyActions applyActions = new ApplyActionsBuilder()
+      .setAction(ImmutableList.of(puntAllAction))
+      .build();
 
-        Action toPortAction = new ActionBuilder()
-                .setOrder(0)
-                .setAction(new OutputActionCaseBuilder()
-                   .setOutputAction(new OutputActionBuilder()
-                      .setMaxLength(Integer.valueOf(0xffff))
-                      .setOutputNodeConnector(outputPort)
-                      .build())
-                   .build())
-                .build();
+    Instruction applyActionsInstruction = new InstructionBuilder()
+      .setOrder(0)
+      .setInstruction(new ApplyActionsCaseBuilder()
+         .setApplyActions(applyActions)
+         .build())
+      .build();
 
+    puntAll
+      .setMatch(match)
+      .setInstructions(new InstructionsBuilder()
+         .setInstruction(ImmutableList.of(applyActionsInstruction))
+         .build())
+      .setPriority(priority)
+      .setBufferId(0xffffffffL)
+      .setHardTimeout(0)
+      .setIdleTimeout(0)
+      .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
+      .setFlags(new FlowModFlags(false, false, false, false, false));
 
-      // Create an Apply Action
-      ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(toPortAction))
-          .build();
+    return puntAll;
+  }
 
-      // Wrap our Apply Action in an Instruction
-      Instruction applyActionsInstruction = new InstructionBuilder() //
-          .setOrder(0)
-          .setInstruction(new ApplyActionsCaseBuilder()//
-              .setApplyActions(applyActions) //
-              .build()) //
-          .build();
+  /**
+   * @param tableId
+   * @param priority
+   * @param srcMac
+   * @param dstMac
+   * @param dstPort
+   * @return {@link FlowBuilder} forwarding all packets to output port
+   */
+  public static FlowBuilder createToPortFlow(Short tableId, int priority,
+    MacAddress srcMac, MacAddress dstMac, NodeConnectorRef dstPort) {
 
-      // Put our Instruction in a list of Instructions
-      toPort
-          .setMatch(match) //
-          .setInstructions(new InstructionsBuilder() //
-              .setInstruction(ImmutableList.of(applyActionsInstruction)) //
-              .build()) //
-          .setPriority(priority) //
-          .setBufferId(0xffffffffL) //
-          .setHardTimeout(0) //
-          .setIdleTimeout(0) //
-          .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
-          .setFlags(new FlowModFlags(false, false, false, false, false));
+    FlowBuilder toPort = new FlowBuilder()
+      .setTableId(tableId)
+      .setFlowName("toPort");
 
-      return toPort;
-    }
+    toPort.setId(new FlowId(Long.toString(toPort.hashCode())));
 
-    /**
-     * @param tableId
-     * @param priority
-     * @return {@link FlowBuilder} forwarding all packets to controller port
-     */
-    public static FlowBuilder createPuntAllFlow(Short tableId, int priority) {
-      FlowBuilder puntAll = new FlowBuilder()
-        .setTableId(tableId)
-        .setFlowName("puntall");
+    EthernetMatch ethernetMatch = new EthernetMatchBuilder()
+      .setEthernetSource(new EthernetSourceBuilder()
+         .setAddress(srcMac)
+         .build())
+      .setEthernetDestination(new EthernetDestinationBuilder()
+         .setAddress(dstMac)
+         .build())
+      .build();
 
-      puntAll.setId(new FlowId(Long.toString(puntAll.hashCode())));
+    MatchBuilder matchBuilder = new MatchBuilder();
+    //matchBuilder.setEthernetMatch(ethernetMatch);
+    Match match = matchBuilder.build();
 
-      Match match = new MatchBuilder().build();
+    Uri outputPort = dstPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
 
-      OutputActionBuilder output = new OutputActionBuilder();
-      output.setMaxLength(Integer.valueOf(0xffff));
-      Uri controllerPort = new Uri(OutputPortValues.CONTROLLER.toString());
-      output.setOutputNodeConnector(controllerPort);
+    Action toPortAction = new ActionBuilder()
+      .setOrder(0)
+      .setAction(new OutputActionCaseBuilder()
+        .setOutputAction(new OutputActionBuilder()
+          .setMaxLength(Integer.valueOf(0xffff))
+          .setOutputNodeConnector(outputPort)
+          .build())
+        .build())
+      .build();
 
-      Action puntAllAction = new ActionBuilder()
-        .setOrder(0)
-        .setAction(new OutputActionCaseBuilder().setOutputAction(output.build()).build())
-        .build();
+    ApplyActions applyActions = new ApplyActionsBuilder()
+      .setAction(ImmutableList.of(toPortAction))
+      .build();
 
-      // Create an Apply Action
-      ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(puntAllAction))
-          .build();
+    Instruction applyActionsInstruction = new InstructionBuilder()
+      .setOrder(0)
+      .setInstruction(new ApplyActionsCaseBuilder()
+      .setApplyActions(applyActions)
+        .build())
+      .build();
 
-      // Wrap our Apply Action in an Instruction
-      Instruction applyActionsInstruction = new InstructionBuilder() //
-          .setOrder(0)
-          .setInstruction(new ApplyActionsCaseBuilder()//
-              .setApplyActions(applyActions) //
-              .build()) //
-          .build();
+    toPort
+      .setMatch(match)
+      .setInstructions(new InstructionsBuilder()
+        .setInstruction(ImmutableList.of(applyActionsInstruction))
+        .build())
+      .setPriority(priority)
+      .setBufferId(0xffffffffL)
+      .setHardTimeout(0)
+      .setIdleTimeout(0)
+      .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
+      .setFlags(new FlowModFlags(false, false, false, false, false));
 
-      // Put our Instruction in a list of Instructions
-      puntAll
-          .setMatch(match) //
-          .setInstructions(new InstructionsBuilder() //
-              .setInstruction(ImmutableList.of(applyActionsInstruction)) //
-              .build()) //
-          .setPriority(priority) //
-          .setBufferId(0xffffffffL) //
-          .setHardTimeout(0) //
-          .setIdleTimeout(0) //
-          .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
-          .setFlags(new FlowModFlags(false, false, false, false, false));
+    return toPort;
+  }
 
-      return puntAll;
-    }
 }
