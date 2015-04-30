@@ -11,6 +11,10 @@ package org.opendaylight.l2switch.maple;
 import org.maple.core.Controller;
 import org.maple.core.MapleSystem;
 import org.maple.core.Rule;
+import org.maple.core.ToPort;
+import org.maple.core.Drop;
+import org.maple.core.Punt;
+import org.maple.core.Action;
 
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorUpdatedBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
@@ -23,11 +27,15 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev100924.MacAddress;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.Table;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.Flow;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.FlowBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.FlowKey;
@@ -84,8 +92,8 @@ public class ODLController implements DataChangeListener,
   private FlowCommitWrapper dataStoreAccessor;
 
   private NodeId nodeId;
+  private short flowTableId = 0;
   private AtomicLong flowIdInc = new AtomicLong();
-  private AtomicLong flowCookieInc = new AtomicLong(0x2a00000000000000L);
 
   private InstanceIdentifier<Node> nodePath;
   private InstanceIdentifier<Table> tablePath;
@@ -94,6 +102,7 @@ public class ODLController implements DataChangeListener,
   private Set<String> coveredMacPaths;
 
   private Map<Integer, NodeConnectorRef> port2NodeConnectorRef;
+  private Map<Integer, MacAddress> port2MacAddress;
 
   private static final String LOCAL_PORT_STR = "LOCAL";
 
@@ -198,6 +207,8 @@ public class ODLController implements DataChangeListener,
 
     MacAddress dstMac = PacketUtils.rawMacToMac(dstMacRaw);
     MacAddress srcMac = PacketUtils.rawMacToMac(srcMacRaw);
+
+    
     System.out.println("Mapping portNum "+portNum+" to NodeConnectorRef. ");
     this.maple.handlePacket(data, switchNum, portNum);
   }
@@ -266,26 +277,26 @@ public class ODLController implements DataChangeListener,
     coveredMacPaths = new HashSet<>();
 
     // start forwarding all packages to controller
-    FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
-    FlowKey flowKey = new FlowKey(flowId);
-    InstanceIdentifier<Flow> flowPath = InstanceIdentifierUtils.createFlowPath(tablePath, flowKey);
+    //FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
+    //FlowKey flowKey = new FlowKey(flowId);
+    //InstanceIdentifier<Flow> flowPath = InstanceIdentifierUtils.createFlowPath(tablePath, flowKey);
 
-    int priority = 4;
+    //int priority = 4;
     // create flow in table with id = 0, priority = 4 (other params are
     // defaulted in OFDataStoreUtil)
-    FlowBuilder allToCtrlFlow = FlowUtils.createFwdAllToControllerFlow(
-            InstanceIdentifierUtils.getTableId(tablePath), priority, flowId);
+    //FlowBuilder allToCtrlFlow = FlowUtils.createFwdAllToControllerFlow(
+    //        InstanceIdentifierUtils.getTableId(tablePath), priority, flowId);
 
-    InstanceIdentifier<Table> tableInstanceId = flowPath.<Table>firstIdentifierOf(Table.class);
-    InstanceIdentifier<Node> nodeInstanceId = flowPath.<Node>firstIdentifierOf(Node.class);
+    //InstanceIdentifier<Table> tableInstanceId = flowPath.<Table>firstIdentifierOf(Table.class);
+    //InstanceIdentifier<Node> nodeInstanceId = flowPath.<Node>firstIdentifierOf(Node.class);
 
-    LOG.debug("writing packetForwardToController flow");
-    Flow f = allToCtrlFlow.build();
-    AddFlowInputBuilder builder = new AddFlowInputBuilder(f);
-    builder.setNode(new NodeRef(nodeInstanceId));
-    builder.setFlowRef(new FlowRef(flowPath));
-    builder.setFlowTable(new FlowTableRef(tableInstanceId));
-    builder.setTransactionUri(new Uri(f.getId().getValue()));
+    //LOG.debug("writing packetForwardToController flow");
+    //Flow f = allToCtrlFlow.build();
+    //AddFlowInputBuilder builder = new AddFlowInputBuilder(f);
+    //builder.setNode(new NodeRef(nodeInstanceId));
+    //builder.setFlowRef(new FlowRef(flowPath));
+    //builder.setFlowTable(new FlowTableRef(tableInstanceId));
+    //builder.setTransactionUri(new Uri(f.getId().getValue()));
     //return fs.addFlow(builder.build());
     //dataStoreAccessor.writeFlowToConfig(flowPath, allToCtrlFlow.build());
     return null;
@@ -330,9 +341,83 @@ public class ODLController implements DataChangeListener,
 
   }
 
+  private Future<RpcResult<AddFlowOutput>> writeFlowToController(InstanceIdentifier<Node> nodeInstanceId,
+                                                                 InstanceIdentifier<Table> tableInstanceId,
+                                                                 InstanceIdentifier<Flow> flowPath,
+                                                                 Flow flow) {
+    final AddFlowInputBuilder builder = new AddFlowInputBuilder(flow);
+    builder.setNode(new NodeRef(nodeInstanceId));
+    builder.setFlowRef(new FlowRef(flowPath));
+    builder.setFlowTable(new FlowTableRef(tableInstanceId));
+    builder.setTransactionUri(new Uri(flow.getId().getValue()));
+    return fs.addFlow(builder.build());
+  }
+
+  private InstanceIdentifier<Table> getTableInstanceId(InstanceIdentifier<Node> nodeId) {
+    // get flow table key
+    TableKey flowTableKey = new TableKey(flowTableId);
+
+    return nodeId.builder()
+        .augmentation(FlowCapableNode.class)
+        .child(Table.class, flowTableKey)
+        .build();
+  }
+
+  private InstanceIdentifier<Flow> getFlowInstanceId(InstanceIdentifier<Table> tableId) {
+    // generate unique flow key
+    FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
+    FlowKey flowKey = new FlowKey(flowId);
+    return tableId.child(Flow.class, flowKey);
+  }
+
+  private void installDropRule(Rule rule, int outSwitch) {
+    /* TODO: add match. */
+    InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
+    InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
+
+    Future<RpcResult<AddFlowOutput>> result;
+    result = writeFlowToController(this.nodePath, tableId, flowId,
+      FlowUtils.createDropAllFlow(this.flowTableId, rule.priority).build());
+  }
+
+  private void installPuntRule(Rule rule, int outSwitch) {
+     /* TODO: add match. */
+    InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
+    InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
+
+    Future<RpcResult<AddFlowOutput>> result;
+    result = writeFlowToController(this.nodePath, tableId, flowId,
+      FlowUtils.createPuntAllFlow(this.flowTableId, rule.priority).build());
+  }
+
+  private void installToPortRule(Rule rule, int outSwitch, int outPort) {
+    /* TODO: add match. */
+    InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
+    InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
+
+    Future<RpcResult<AddFlowOutput>> result;
+    result = writeFlowToController(this.nodePath, tableId, flowId,
+      FlowUtils.createDropAllFlow(this.flowTableId, rule.priority).build());
+  }
+
   public void installRules(LinkedList<Rule> rules, int... outSwitches) {
-    for (int i = 0; i < outSwitches.length; i++) {
-      System.out.println("Sending " + rules + " to switches: " + outSwitches[i]);
+    for (Rule rule : rules) {
+      for (Action action : rule.actions)
+
+        if (action instanceof Drop)
+          for (int i = 0; i < outSwitches.length; i++)
+            installPuntRule(rule, outSwitches[i]);
+
+        else if (rule.action instanceof Punt)
+          for (int i = 0; i < outSwitches.length; i++)
+            installPuntRule(rule, outswitches[i]);
+
+        else if (rule.action instanceof ToPort)
+          for (int i = 0; i < outSwitches.length; i++)
+            installToPortRule(rule, outSwitches[i], ((ToPort)action).portID);
+
+        else
+          throw new IllegalArgumentException("unknown rule type: " + rule);
     }
   }
 

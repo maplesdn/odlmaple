@@ -3,9 +3,15 @@ package org.opendaylight.l2switch.maple;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.Match;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.FlowCookie;
+import java.util.concurrent.atomic.AtomicLong;
+import java.math.BigInteger;
+
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Uri;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev100924.MacAddress;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.OutputActionCaseBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.DropActionCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.output.action._case.OutputActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.Action;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionBuilder;
@@ -34,8 +40,54 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026
 import com.google.common.collect.ImmutableList;
 
 public class FlowUtils {
-    private FlowUtils() {
-        //prohibite to instantiate util class
+
+  private FlowUtils() { }
+
+  private static AtomicLong flowCookieInc = new AtomicLong(0x2a00000000000000L);
+
+    public static FlowBuilder createDropAllFlow(Short tableId, int priority) {
+      // start building flow
+      FlowBuilder dropAll = new FlowBuilder() //
+          .setTableId(tableId) //
+          .setFlowName("dropall");
+
+      // use its own hash code for id.
+      dropAll.setId(new FlowId(Long.toString(dropAll.hashCode())));
+
+      Match match = new MatchBuilder().build();
+
+
+      Action dropAllAction = new ActionBuilder() //
+          .setOrder(0)
+          .setAction(new DropActionCaseBuilder().build())
+          .build();
+
+      // Create an Apply Action
+      ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(dropAllAction))
+          .build();
+
+      // Wrap our Apply Action in an Instruction
+      Instruction applyActionsInstruction = new InstructionBuilder() //
+          .setOrder(0)
+          .setInstruction(new ApplyActionsCaseBuilder()//
+              .setApplyActions(applyActions) //
+              .build()) //
+          .build();
+
+      // Put our Instruction in a list of Instructions
+      dropAll
+          .setMatch(match) //
+          .setInstructions(new InstructionsBuilder() //
+              .setInstruction(ImmutableList.of(applyActionsInstruction)) //
+              .build()) //
+          .setPriority(priority) //
+          .setBufferId(0xffffffffL) //
+          .setHardTimeout(0) //
+          .setIdleTimeout(0) //
+          .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
+          .setFlags(new FlowModFlags(false, false, false, false, false));
+
+      return dropAll;
     }
 
     /**
@@ -95,45 +147,52 @@ public class FlowUtils {
     /**
      * @param tableId
      * @param priority
-     * @param flowId
      * @return {@link FlowBuilder} forwarding all packets to controller port
      */
-    public static FlowBuilder createFwdAllToControllerFlow(final Short tableId, final int priority, final FlowId flowId) {
-        FlowBuilder allToCtrlFlow = new FlowBuilder().setTableId(tableId).setFlowName("allPacketsToCtrl").setId(flowId)
-                .setKey(new FlowKey(flowId));
+    public static FlowBuilder createPuntAllFlow(Short tableId, int priority) {
+      FlowBuilder puntAll = new FlowBuilder()
+        .setTableId(tableId)
+        .setFlowName("puntall");
 
-        MatchBuilder matchBuilder = new MatchBuilder();
+      puntAll.setId(new FlowId(Long.toString(puntAll.hashCode())));
 
-        // Create output action -> send to controller
-        OutputActionBuilder output = new OutputActionBuilder();
-        output.setMaxLength(Integer.valueOf(0xffff));
-        Uri controllerPort = new Uri(OutputPortValues.CONTROLLER.toString());
-        output.setOutputNodeConnector(controllerPort);
+      Match match = new MatchBuilder().build();
 
-        ActionBuilder ab = new ActionBuilder();
-        ab.setAction(new OutputActionCaseBuilder().setOutputAction(output.build()).build());
-        ab.setOrder(0);
-        ab.setKey(new ActionKey(0));
+      OutputActionBuilder output = new OutputActionBuilder();
+      output.setMaxLength(Integer.valueOf(0xffff));
+      Uri controllerPort = new Uri(OutputPortValues.CONTROLLER.toString());
+      output.setOutputNodeConnector(controllerPort);
 
-        List<Action> actionList = new ArrayList<Action>();
-        actionList.add(ab.build());
+      Action puntAllAction = new ActionBuilder()
+        .setOrder(0)
+        .setAction(new OutputActionCaseBuilder().setOutputAction(output.build()).build())
+        .build();
 
-        // Create an Apply Action
-        ApplyActionsBuilder aab = new ApplyActionsBuilder();
-        aab.setAction(actionList);
+      // Create an Apply Action
+      ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(puntAllAction))
+          .build();
 
-        // Wrap our Apply Action in an Instruction
-        InstructionBuilder ib = new InstructionBuilder();
-        ib.setInstruction(new ApplyActionsCaseBuilder().setApplyActions(aab.build()).build());
-        ib.setOrder(0);
-        ib.setKey(new InstructionKey(0));
+      // Wrap our Apply Action in an Instruction
+      Instruction applyActionsInstruction = new InstructionBuilder() //
+          .setOrder(0)
+          .setInstruction(new ApplyActionsCaseBuilder()//
+              .setApplyActions(applyActions) //
+              .build()) //
+          .build();
 
-        // Put our Instruction in a list of Instructions
-        InstructionsBuilder isb = new InstructionsBuilder();
-        List<Instruction> instructions = new ArrayList<Instruction>();
-        instructions.add(ib.build());
-        isb.setInstruction(instructions);
+      // Put our Instruction in a list of Instructions
+      puntAll
+          .setMatch(match) //
+          .setInstructions(new InstructionsBuilder() //
+              .setInstruction(ImmutableList.of(applyActionsInstruction)) //
+              .build()) //
+          .setPriority(priority) //
+          .setBufferId(0xffffffffL) //
+          .setHardTimeout(0) //
+          .setIdleTimeout(0) //
+          .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
+          .setFlags(new FlowModFlags(false, false, false, false, false));
 
-        return allToCtrlFlow;
+      return puntAll;
     }
 }
