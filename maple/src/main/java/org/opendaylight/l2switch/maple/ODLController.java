@@ -395,13 +395,11 @@ public class ODLController implements DataChangeListener,
 
   private void installToPortRule(Rule rule, int outSwitch, int[] outPorts) {
 
-    assert outPorts.length == 1;
-    int outPort = outPorts[0];
-    
-    NodeConnectorRef dstPorts[] = new NodeConnectorRef[1];
-    dstPorts[0] = this.portToNodeConnectorRef.get(outPort);
-    if (dstPorts[0] == null)
-      return;
+    NodeConnectorRef dstPorts[] = new NodeConnectorRef[outPorts.length];
+    for (int i = 0; i < outPorts.length; i++) {
+      dstPorts[i] = this.portToNodeConnectorRef.get(outPorts[i]);
+      if (dstPorts[i] == null) { return; }
+    }
 
     // System.out.println("Installing toPort rule"+rule.toString());
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
