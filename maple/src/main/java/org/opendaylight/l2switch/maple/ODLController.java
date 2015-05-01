@@ -354,7 +354,7 @@ public class ODLController implements DataChangeListener,
       FlowUtils.createPuntAllFlow(this.flowTableId, rule.priority).build());
   }
 
-  public synchronized Match matchForRule(Rule rule) {
+  public Match matchForRule(Rule rule) {
     MatchBuilder matchBuilder = new MatchBuilder();
     EthernetMatchBuilder ethernetMatchBuilder = new EthernetMatchBuilder();
     MacAddress addr;
@@ -398,7 +398,10 @@ public class ODLController implements DataChangeListener,
     NodeConnectorRef dstPorts[] = new NodeConnectorRef[outPorts.length];
     for (int i = 0; i < outPorts.length; i++) {
       dstPorts[i] = this.portToNodeConnectorRef.get(outPorts[i]);
-      if (dstPorts[i] == null) { return; }
+      if (dstPorts[i] == null) {
+        System.out.println("!!!!!!!! WARNING - NOT INSTALLING RULE: " + rule + "!!!!!!!!!!!!!!");
+        return;
+      }
     }
 
     // System.out.println("Installing toPort rule"+rule.toString());
