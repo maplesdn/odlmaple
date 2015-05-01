@@ -86,6 +86,23 @@ public abstract class PacketUtils {
         return Arrays.copyOfRange(payload, ETHER_TYPE_START_POSITION, ETHER_TYPE_END_POSITION);
     }
 
+
+  public static MacAddress macValueToMac(long mac) {
+    byte[] bs = new byte[6];
+    for (int i = 0; i < 6; i++) {
+      bs[5-i] = (byte) ((mac >>> (8*i)) & 0xffL);
+    }
+    /*
+    bs[5] = (byte) (mac & 0xffL);
+    bs[4] = (byte) ((mac >>> 1) & 0xffL);
+    bs[3] = (byte) ((mac >>> 2) & 0xffL);
+    bs[2] = (byte) ((mac >>> 3) & 0xffL);
+    bs[1] = (byte) ((mac >>> 4) & 0xffL);
+    bs[0] = (byte) ((mac >>> 5) & 0xffL);
+    */
+    return rawMacToMac(bs);
+  }
+  
     /**
      * @param rawMac
      * @return {@link MacAddress} wrapping string value, baked upon binary MAC

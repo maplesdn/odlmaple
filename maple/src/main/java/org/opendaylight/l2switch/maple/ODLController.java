@@ -15,6 +15,8 @@ import org.maple.core.ToPort;
 import org.maple.core.Drop;
 import org.maple.core.Punt;
 import org.maple.core.Action;
+import org.maple.core.TraceItem;
+
 
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorUpdatedBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
@@ -31,9 +33,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.EthernetMatchBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetDestinationBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetSourceBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.MatchBuilder;
+
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev100924.MacAddress;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.Match;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.Table;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.Flow;
@@ -204,7 +212,9 @@ public class ODLController implements DataChangeListener,
     this.portToMacAddress.put(portNum, srcMac);
 
     System.out.println("Mapping portNum "+portNum+" to NodeConnectorRef. ");
-    this.maple.handlePacket(data, switchNum, portNum);
+    synchronized(this) {
+      this.maple.handlePacket(data, switchNum, portNum);
+    }
   }
 
   private static int switchStrToInt(String switchStr) {
@@ -347,6 +357,41 @@ public class ODLController implements DataChangeListener,
       FlowUtils.createPuntAllFlow(this.flowTableId, rule.priority).build());
   }
 
+  public synchronized Match matchForRule(Rule rule) {
+    MatchBuilder matchBuilder = new MatchBuilder();
+    EthernetMatchBuilder ethernetMatchBuilder = new EthernetMatchBuilder();
+    MacAddress addr;
+    for (TraceItem item : rule.match.fieldValues) {
+      switch (item.field) {
+        case IN_PORT:
+          matchBuilder.setInPort(nodeConnectorId(Long.toString(item.value)));
+          break;
+        case ETH_SRC:
+          addr = PacketUtils.macValueToMac(item.value);
+          ethernetMatchBuilder.setEthernetSource(
+              new EthernetSourceBuilder()
+              .setAddress(addr)
+              .build());
+          break;
+        case ETH_DST:
+          addr = PacketUtils.macValueToMac(item.value);
+          ethernetMatchBuilder.setEthernetDestination(
+              new EthernetDestinationBuilder()
+              .setAddress(addr)
+              .build());
+          break;
+        case ETH_TYPE:
+          break;
+        default:
+          assert false;
+          break;
+      }
+    }
+    matchBuilder.setEthernetMatch(ethernetMatchBuilder.build());
+    Match m = matchBuilder.build();
+    return m;
+  }
+
   private void installToPortRule(Rule rule, int outSwitch, int outPort) {
     /* TODO: add match. */
     NodeConnectorRef dstPort = this.portToNodeConnectorRef.get(outPort);
@@ -362,19 +407,39 @@ public class ODLController implements DataChangeListener,
 
     Future<RpcResult<AddFlowOutput>> result;
     result = writeFlowToController(this.nodePath, tableId, flowId,
-      FlowUtils.createToPortFlow(this.flowTableId, rule.priority,
-        srcMac, dstMac, dstPort).build());
+      FlowUtils.createToPortFlow(this.flowTableId,
+                                 rule.priority,
+                                 matchForRule(rule),
+                                 dstPort).build());
   }
 
   public void installRules(LinkedList<Rule> rules, int... outSwitches) {
     for (Rule rule : rules) {
+      LinkedList<Action> actions = rule.actions;
+      
+      if (actions.size() > 0) {
+        
+        // right now, we expect exactly 1 action, right?
+        assert actions.size() == 1;
+        
+        Action a = actions.getFirst();
+        if (a instanceof ToPort) {
+          int outPort = ((ToPort)a).portID;
+          for (int i = 0; i < outSwitches.length; i++) {
+            installToPortRule(rule, outSwitches[i], outPort);
+          }
+        }
+      } else {
+        throw new IllegalArgumentException("unknown rule type: " + rule);
+      }
+      /*
       for (Action action : rule.actions) {
 
-        if (action instanceof Drop) {
+        if (false) { //action instanceof Drop) {
           for (int i = 0; i < outSwitches.length; i++)
             installDropRule(rule, outSwitches[i]);
 
-        } else if (action instanceof Punt) {
+        } else if (false) { //action instanceof Punt) {
           for (int i = 0; i < outSwitches.length; i++)
             installPuntRule(rule, outSwitches[i]);
 
@@ -387,6 +452,7 @@ public class ODLController implements DataChangeListener,
           throw new IllegalArgumentException("unknown rule type: " + rule);
         }
       }
+      */
     }
   }
 
