@@ -8,6 +8,7 @@
 
 package org.opendaylight.l2switch.maple;
 
+
 import org.maple.core.Controller;
 import org.maple.core.MapleSystem;
 import org.maple.core.Rule;
@@ -17,18 +18,12 @@ import org.maple.core.Punt;
 import org.maple.core.Action;
 import org.maple.core.TraceItem;
 
-
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorUpdatedBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -399,9 +394,18 @@ public class ODLController implements DataChangeListener,
       return;
 
     //MacAddress srcMac = this.portToMacAddress.get(???);
+    long dstMacLong;
+    Iterator<TraceItem> matchIterator = rule.match.fieldValues.iterator();
+    while (matchIterator.hasNext()) {
+      TraceItem item = matchIterator.next();
+      // System.out.println("Rule match with item: " + item.toString());
+      if(item.field == TraceItem.Field.ETH_DST)
+        dstMacLong = item.value;
+    }
+    // TODO: write a method to convert dstMaclong into MacAddress
     MacAddress srcMac = null;
     MacAddress dstMac = this.portToMacAddress.get(outPort);
-
+    // System.out.println("Installing toPort rule"+rule.toString());
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
     InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
