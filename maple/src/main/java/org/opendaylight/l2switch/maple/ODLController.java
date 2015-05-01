@@ -12,7 +12,7 @@ package org.opendaylight.l2switch.maple;
 import org.maple.core.Controller;
 import org.maple.core.MapleSystem;
 import org.maple.core.Rule;
-import org.maple.core.ToPort;
+import org.maple.core.ToPorts;
 import org.maple.core.Drop;
 import org.maple.core.Punt;
 import org.maple.core.Action;
@@ -393,24 +393,16 @@ public class ODLController implements DataChangeListener,
     return m;
   }
 
-  private void installToPortRule(Rule rule, int outSwitch, int outPort) {
-    /* TODO: add match. */
-    NodeConnectorRef dstPort = this.portToNodeConnectorRef.get(outPort);
-    if (dstPort == null)
+  private void installToPortRule(Rule rule, int outSwitch, int[] outPorts) {
+
+    assert outPorts.length == 1;
+    int outPort = outPorts[0];
+    
+    NodeConnectorRef dstPorts[] = new NodeConnectorRef[1];
+    dstPorts[0] = this.portToNodeConnectorRef.get(outPort);
+    if (dstPorts[0] == null)
       return;
 
-    //MacAddress srcMac = this.portToMacAddress.get(???);
-    long dstMacLong;
-    Iterator<TraceItem> matchIterator = rule.match.fieldValues.iterator();
-    while (matchIterator.hasNext()) {
-      TraceItem item = matchIterator.next();
-      // System.out.println("Rule match with item: " + item.toString());
-      if(item.field == TraceItem.Field.ETH_DST)
-        dstMacLong = item.value;
-    }
-    // TODO: write a method to convert dstMaclong into MacAddress
-    MacAddress srcMac = null;
-    MacAddress dstMac = this.portToMacAddress.get(outPort);
     // System.out.println("Installing toPort rule"+rule.toString());
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
     InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
@@ -420,24 +412,16 @@ public class ODLController implements DataChangeListener,
       FlowUtils.createToPortFlow(this.flowTableId,
                                  rule.priority,
                                  matchForRule(rule),
-                                 dstPort).build());
+                                 dstPorts).build());
   }
 
   public void installRules(LinkedList<Rule> rules, int... outSwitches) {
     for (Rule rule : rules) {
-      LinkedList<Action> actions = rule.actions;
-      
-      if (actions.size() > 0) {
-        
-        // right now, we expect exactly 1 action, right?
-        assert actions.size() == 1;
-        
-        Action a = actions.getFirst();
-        if (a instanceof ToPort) {
-          int outPort = ((ToPort)a).portID;
-          for (int i = 0; i < outSwitches.length; i++) {
-            installToPortRule(rule, outSwitches[i], outPort);
-          }
+      Action a = rule.action;
+      if (a instanceof ToPorts) {
+        int[] outPorts = ((ToPorts)a).portIDs;
+        for (int i = 0; i < outSwitches.length; i++) {
+          installToPortRule(rule, outSwitches[i], outPorts);
         }
       } else {
         throw new IllegalArgumentException("unknown rule type: " + rule);

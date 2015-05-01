@@ -166,7 +166,9 @@ public class FlowUtils {
     //matchBuilder.setEthernetMatch(ethernetMatch);
     Match match = matchBuilder.build();
 
-    return createToPortFlow(tableId, priority, match, dstPort);
+    NodeConnectorRef[] dstPorts = new NodeConnectorRef[1];
+    dstPorts[0] = dstPort;
+    return createToPortFlow(tableId, priority, match, dstPorts);
   }
 
   /**
@@ -180,7 +182,7 @@ public class FlowUtils {
   createToPortFlow(Short tableId,
                    int priority,
                    Match match, 
-                   NodeConnectorRef dstPort) {
+                   NodeConnectorRef[] dstPorts) {
 
     FlowBuilder toPort = new FlowBuilder()
       .setTableId(tableId)
@@ -188,21 +190,23 @@ public class FlowUtils {
 
     toPort.setId(new FlowId(Long.toString(toPort.hashCode())));
 
-    Uri outputPort = dstPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
+    ApplyActionsBuilder applyActionsBuilder = new ApplyActionsBuilder();
+    for (int i = 0; i < dstPorts.length; i++) {
+      NodeConnectorRef dstPort = dstPorts[i];
+      Uri outputPort = dstPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
+      Action toPortAction = new ActionBuilder()
+          .setOrder(i)
+          .setAction(new OutputActionCaseBuilder()
+                     .setOutputAction(new OutputActionBuilder()
+                                      .setMaxLength(Integer.valueOf(0xffff))
+                                      .setOutputNodeConnector(outputPort)
+                                      .build())
+                     .build())
+          .build();
+      applyActionsBuilder.setAction(ImmutableList.of(toPortAction));
+    }
 
-    Action toPortAction = new ActionBuilder()
-      .setOrder(0)
-      .setAction(new OutputActionCaseBuilder()
-        .setOutputAction(new OutputActionBuilder()
-          .setMaxLength(Integer.valueOf(0xffff))
-          .setOutputNodeConnector(outputPort)
-          .build())
-        .build())
-      .build();
-
-    ApplyActions applyActions = new ApplyActionsBuilder()
-      .setAction(ImmutableList.of(toPortAction))
-      .build();
+    ApplyActions applyActions = applyActionsBuilder.build();
 
     Instruction applyActionsInstruction = new InstructionBuilder()
       .setOrder(0)
