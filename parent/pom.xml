@@ -23,7 +23,6 @@
     <config.version>0.3.0-SNAPSHOT</config.version>
     <openflow.plugin.version>0.1.0-SNAPSHOT</openflow.plugin.version>
     <dlux.version>0.2.0-SNAPSHOT</dlux.version>
-    <karaf.version>3.0.1</karaf.version>
     <bundle.plugin.version>2.4.0</bundle.plugin.version>
     <config.configfile.directory>etc/opendaylight/karaf</config.configfile.directory>
   </properties>
