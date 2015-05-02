@@ -334,16 +334,6 @@ public class ODLController implements DataChangeListener,
     return tableId.child(Flow.class, flowKey);
   }
 
-  private void installDropRule(Rule rule, int outSwitch) {
-    /* TODO: add match. */
-    InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
-    InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
-
-    Future<RpcResult<AddFlowOutput>> result;
-    result = writeFlowToController(this.nodePath, tableId, flowId,
-      FlowUtils.createDropAllFlow(this.flowTableId, rule.priority).build());
-  }
-
   private void installPuntRule(Rule rule, int outSwitch) {
      /* TODO: add match. */
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
@@ -421,6 +411,11 @@ public class ODLController implements DataChangeListener,
       Action a = rule.action;
       if (a instanceof ToPorts) {
         int[] outPorts = ((ToPorts)a).portIDs;
+        for (int i = 0; i < outSwitches.length; i++) {
+          installToPortRule(rule, outSwitches[i], outPorts);
+        }
+      } else if (a instanceof Drop) {
+        int[] outPorts = new int[0];
         for (int i = 0; i < outSwitches.length; i++) {
           installToPortRule(rule, outSwitches[i], outPorts);
         }

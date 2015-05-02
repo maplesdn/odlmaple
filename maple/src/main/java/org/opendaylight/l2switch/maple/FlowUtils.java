@@ -145,35 +145,6 @@ public class FlowUtils {
   /**
    * @param tableId
    * @param priority
-   * @param srcMac
-   * @param dstMac
-   * @param dstPort
-   * @return {@link FlowBuilder} forwarding all packets to output port
-   */
-  public static FlowBuilder createToPortFlow(Short tableId, int priority,
-    MacAddress srcMac, MacAddress dstMac, NodeConnectorRef dstPort) {
-
-    EthernetMatch ethernetMatch = new EthernetMatchBuilder()
-      .setEthernetSource(new EthernetSourceBuilder()
-         .setAddress(srcMac)
-         .build())
-      .setEthernetDestination(new EthernetDestinationBuilder()
-         .setAddress(dstMac)
-         .build())
-      .build();
-
-    MatchBuilder matchBuilder = new MatchBuilder();
-    //matchBuilder.setEthernetMatch(ethernetMatch);
-    Match match = matchBuilder.build();
-
-    NodeConnectorRef[] dstPorts = new NodeConnectorRef[1];
-    dstPorts[0] = dstPort;
-    return createToPortFlow(tableId, priority, match, dstPorts);
-  }
-
-  /**
-   * @param tableId
-   * @param priority
    * @param match
    * @param dstPort
    * @return {@link FlowBuilder} forwarding all packets to output port
