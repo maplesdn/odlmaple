@@ -190,12 +190,11 @@ public class FlowUtils {
 
     toPort.setId(new FlowId(Long.toString(toPort.hashCode())));
 
-    ApplyActionsBuilder applyActionsBuilder = new ApplyActionsBuilder();
-    for (int i = 0; i < dstPorts.length; i++) {
-      NodeConnectorRef dstPort = dstPorts[i];
+    ArrayList<Action> outputActions = new ArrayList<Action>();
+    for (NodeConnectorRef dstPort : dstPorts) {
       Uri outputPort = dstPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
       Action toPortAction = new ActionBuilder()
-          .setOrder(i)
+          .setOrder(0)
           .setAction(new OutputActionCaseBuilder()
                      .setOutputAction(new OutputActionBuilder()
                                       .setMaxLength(Integer.valueOf(0xffff))
@@ -203,10 +202,12 @@ public class FlowUtils {
                                       .build())
                      .build())
           .build();
-      applyActionsBuilder.setAction(ImmutableList.of(toPortAction));
+      outputActions.add(toPortAction);
     }
-
-    ApplyActions applyActions = applyActionsBuilder.build();
+    ApplyActions applyActions =
+        new ApplyActionsBuilder()
+        .setAction(outputActions)
+        .build();
 
     Instruction applyActionsInstruction = new InstructionBuilder()
       .setOrder(0)
