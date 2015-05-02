@@ -65,6 +65,8 @@ import org.slf4j.LoggerFactory;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.AddFlowOutput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.AddFlowInputBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.RemoveFlowOutput;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.RemoveFlowInputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.FlowRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.FlowTableRef;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Uri;
@@ -329,6 +331,19 @@ public class ODLController implements DataChangeListener,
     return fs.addFlow(builder.build());
   }
 
+  private Future<RpcResult<RemoveFlowOutput>>
+  removeFlow(InstanceIdentifier<Node> nodeInstanceId,
+             InstanceIdentifier<Table> tableInstanceId,
+             InstanceIdentifier<Flow> flowPath,
+             Flow flow) {
+    RemoveFlowInputBuilder builder = new RemoveFlowInputBuilder(flow);
+    builder.setNode(new NodeRef(nodeInstanceId));
+    builder.setFlowRef(new FlowRef(flowPath));
+    builder.setFlowTable(new FlowTableRef(tableInstanceId));
+    builder.setTransactionUri(new Uri(flow.getId().getValue()));
+    return fs.removeFlow(builder.build());
+  }
+
   private InstanceIdentifier<Table>
   getTableInstanceId(InstanceIdentifier<Node> nodeId) {
     // get flow table key
@@ -450,4 +465,63 @@ public class ODLController implements DataChangeListener,
       }
     }
   }
+
+  private void removePuntRule(Rule rule, int outSwitch) {
+    InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
+    InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
+
+    Future<RpcResult<RemoveFlowOutput>> result;
+    Match m = matchForRule(rule);
+    Flow flow =
+        FlowUtils.createPuntFlow(this.flowTableId, rule.priority, m)
+        .build();
+    result = removeFlow(this.nodePath, tableId, flowId, flow);
+  }
+
+  private void removeToPortRule(Rule rule, int outSwitch, int[] outPorts) {
+
+    NodeConnectorRef dstPorts[] = new NodeConnectorRef[outPorts.length];
+    for (int i = 0; i < outPorts.length; i++) {
+      dstPorts[i] = this.portToNodeConnectorRef.get(outPorts[i]);
+      if (dstPorts[i] == null) {
+        System.out.println("!!!!!!!! WARNING - NOT INSTALLING RULE: " + rule + "!!!!!!!!!!!!!!");
+        return;
+      }
+    }
+
+    InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
+    InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
+
+    Future<RpcResult<RemoveFlowOutput>> result;
+    Match m = matchForRule(rule);
+    Flow flow =
+        FlowUtils.createToPortFlow(this.flowTableId, rule.priority, m, dstPorts)
+        .build();
+    result = removeFlow(this.nodePath, tableId, flowId, flow);
+  }
+
+  @Override
+  public void deleteRules(LinkedList<Rule> rules, int... outSwitches) {
+    for (Rule rule : rules) {
+      Action a = rule.action;
+      if (a instanceof ToPorts) {
+        int[] outPorts = ((ToPorts) a).portIDs;
+        for (int sw : outSwitches) {
+          removeToPortRule(rule, sw, outPorts);
+        }
+      } else if (a instanceof Drop) {
+        int[] outPorts = new int[0];
+        for (int sw : outSwitches) {
+          removeToPortRule(rule, sw, outPorts);
+        }
+      } else if (a instanceof Punt) {
+        for (int sw : outSwitches) {
+          removePuntRule(rule, sw);
+        }
+      } else {
+        throw new IllegalArgumentException("unknown rule type: " + rule);
+      }
+    }
+  }
+
 }
