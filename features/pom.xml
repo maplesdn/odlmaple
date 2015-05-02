@@ -39,13 +39,6 @@
       <classifier>features</classifier>
       <type>xml</type>
     </dependency>
-    <dependency>
-      <groupId>org.opendaylight.dlux</groupId>
-      <artifactId>features-dlux</artifactId>
-      <version>${dlux.version}</version>
-      <classifier>features</classifier>
-      <type>xml</type>
-    </dependency>
 
     <!-- bundles used by features directly -->
     <dependency>
