@@ -229,7 +229,6 @@ public class ODLController implements DataChangeListener,
    */
   public void start() {
     LOG.debug("start() -->");
-
     this.maple = new MapleSystem(this);
     System.out.println("Maple Initiated");
     this.portToNodeConnectorRef = new HashMap<>();
@@ -237,7 +236,6 @@ public class ODLController implements DataChangeListener,
 
     this.nodePath =
         InstanceIdentifierUtils.createNodePath(new NodeId("node_001"));
-
     LOG.debug("start() <--");
   }
 
@@ -246,7 +244,6 @@ public class ODLController implements DataChangeListener,
    */
   public void stop() {
     LOG.debug("stop() -->");
-    //TODO: remove flow (created in #start())
     LOG.debug("stop() <--");
   }
  
@@ -293,9 +290,23 @@ public class ODLController implements DataChangeListener,
     }
   }
 
-  public void sendPacket(byte[] data, int inSwitch, int inPort, int... ports) {
-    System.out.println("sendPacket Called in handler");
+  /* Implements Controller. */
 
+  private void
+  sendPacketOut(byte[] payload, NodeConnectorRef ingress, NodeConnectorRef egress) {
+    InstanceIdentifier<Node> egressNodePath =
+        InstanceIdentifierUtils.getNodePath(egress.getValue());
+    TransmitPacketInput input = new TransmitPacketInputBuilder()
+      .setPayload(payload)
+      .setNode(new NodeRef(egressNodePath))
+      .setEgress(egress)
+      .setIngress(ingress)
+      .build();
+    pps.transmitPacket(input);
+  }
+
+  @Override
+  public void sendPacket(byte[] data, int inSwitch, int inPort, int... ports) {
     for (int i = 0; i < ports.length; i++) {
       NodeConnectorRef ncRef = PacketUtils.createNodeConnRef(
         nodePath,
@@ -303,15 +314,14 @@ public class ODLController implements DataChangeListener,
         ports[i] + "");
       sendPacketOut(data, ingressPlaceHolder(inPort), ncRef);
     }
-
   }
 
   private Future<RpcResult<AddFlowOutput>>
-  writeFlowToController(InstanceIdentifier<Node> nodeInstanceId,
-                        InstanceIdentifier<Table> tableInstanceId,
-                        InstanceIdentifier<Flow> flowPath,
-                        Flow flow) {
-    final AddFlowInputBuilder builder = new AddFlowInputBuilder(flow);
+  addFlow(InstanceIdentifier<Node> nodeInstanceId,
+          InstanceIdentifier<Table> tableInstanceId,
+          InstanceIdentifier<Flow> flowPath,
+          Flow flow) {
+    AddFlowInputBuilder builder = new AddFlowInputBuilder(flow);
     builder.setNode(new NodeRef(nodeInstanceId));
     builder.setFlowRef(new FlowRef(flowPath));
     builder.setFlowTable(new FlowTableRef(tableInstanceId));
@@ -338,19 +348,13 @@ public class ODLController implements DataChangeListener,
     return tableId.child(Flow.class, flowKey);
   }
 
-  private void installPuntRule(Rule rule, int outSwitch) {
-    InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
-    InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
-
-    Future<RpcResult<AddFlowOutput>> result;
-    Match m = matchForRule(rule);
-    Flow flow =
-        FlowUtils.createPuntFlow(this.flowTableId, rule.priority, m)
-        .build();
-    result = writeFlowToController(this.nodePath, tableId, flowId, flow);
+  private NodeConnectorId nodeConnectorId(String connectorId) {
+    NodeKey nodeKey = nodePath.firstKeyOf(Node.class, NodeKey.class);
+    StringBuilder stringId = new StringBuilder(nodeKey.getId().getValue()).append(":").append(connectorId);
+    return new NodeConnectorId(stringId.toString());
   }
 
-  public Match matchForRule(Rule rule) {
+  private Match matchForRule(Rule rule) {
     MatchBuilder matchBuilder = new MatchBuilder();
     EthernetMatchBuilder ethernetMatchBuilder = new EthernetMatchBuilder();
     MacAddress addr;
@@ -389,6 +393,18 @@ public class ODLController implements DataChangeListener,
     return m;
   }
 
+  private void installPuntRule(Rule rule, int outSwitch) {
+    InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
+    InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
+
+    Future<RpcResult<AddFlowOutput>> result;
+    Match m = matchForRule(rule);
+    Flow flow =
+        FlowUtils.createPuntFlow(this.flowTableId, rule.priority, m)
+        .build();
+    result = addFlow(this.nodePath, tableId, flowId, flow);
+  }
+
   private void installToPortRule(Rule rule, int outSwitch, int[] outPorts) {
 
     NodeConnectorRef dstPorts[] = new NodeConnectorRef[outPorts.length];
@@ -400,29 +416,29 @@ public class ODLController implements DataChangeListener,
       }
     }
 
-    // System.out.println("Installing toPort rule"+rule.toString());
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
     InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
     Future<RpcResult<AddFlowOutput>> result;
-    result = writeFlowToController(this.nodePath, tableId, flowId,
-      FlowUtils.createToPortFlow(this.flowTableId,
-                                 rule.priority,
-                                 matchForRule(rule),
-                                 dstPorts).build());
+    Match m = matchForRule(rule);
+    Flow flow =
+        FlowUtils.createToPortFlow(this.flowTableId, rule.priority, m, dstPorts)
+        .build();
+    result = addFlow(this.nodePath, tableId, flowId, flow);
   }
 
+  @Override
   public void installRules(LinkedList<Rule> rules, int... outSwitches) {
     for (Rule rule : rules) {
       Action a = rule.action;
       if (a instanceof ToPorts) {
         int[] outPorts = ((ToPorts) a).portIDs;
-        for (int sw : outSwitches) { 
+        for (int sw : outSwitches) {
           installToPortRule(rule, sw, outPorts);
         }
       } else if (a instanceof Drop) {
         int[] outPorts = new int[0];
-        for (int sw : outSwitches) { 
+        for (int sw : outSwitches) {
           installToPortRule(rule, sw, outPorts);
         }
       } else if (a instanceof Punt) {
@@ -434,24 +450,4 @@ public class ODLController implements DataChangeListener,
       }
     }
   }
-
-  private NodeConnectorId nodeConnectorId(String connectorId) {
-    NodeKey nodeKey = nodePath.firstKeyOf(Node.class, NodeKey.class);
-    StringBuilder stringId = new StringBuilder(nodeKey.getId().getValue()).append(":").append(connectorId);
-    return new NodeConnectorId(stringId.toString());
-  }
-
-  private void
-  sendPacketOut(byte[] payload, NodeConnectorRef ingress, NodeConnectorRef egress) {
-    InstanceIdentifier<Node> egressNodePath =
-        InstanceIdentifierUtils.getNodePath(egress.getValue());
-    TransmitPacketInput input = new TransmitPacketInputBuilder()
-      .setPayload(payload)
-      .setNode(new NodeRef(egressNodePath))
-      .setEgress(egress)
-      .setIngress(ingress)
-      .build();
-    pps.transmitPacket(input);
-  }
-
 }
