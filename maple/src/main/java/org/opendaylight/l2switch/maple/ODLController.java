@@ -235,7 +235,8 @@ public class ODLController implements DataChangeListener,
     this.portToNodeConnectorRef = new HashMap<>();
     this.portToMacAddress = new HashMap<>();
 
-    this.nodePath = InstanceIdentifierUtils.createNodePath(new NodeId("node_001"));
+    this.nodePath =
+        InstanceIdentifierUtils.createNodePath(new NodeId("node_001"));
 
     LOG.debug("start() <--");
   }
@@ -252,11 +253,14 @@ public class ODLController implements DataChangeListener,
   private NodeConnectorRef ingressPlaceHolder(int portNum) {
     if (this.portToNodeConnectorRef.containsKey(portNum))
       return this.portToNodeConnectorRef.get(portNum);
-    else
-      throw new IllegalArgumentException("portNum " + portNum + " does not exist in map");
+    else {
+      String msg = "portNum " + portNum + " does not exist in map";
+      throw new IllegalArgumentException(msg);
+    }
   }
 
-  public synchronized Future<RpcResult<AddFlowOutput>> onSwitchAppeared(InstanceIdentifier<Table> appearedTablePath) {
+  public synchronized Future<RpcResult<AddFlowOutput>>
+  onSwitchAppeared(InstanceIdentifier<Table> appearedTablePath) {
 
     LOG.debug("expected table acquired, learning ..");
 
@@ -268,7 +272,8 @@ public class ODLController implements DataChangeListener,
   }
 
   @Override
-  public void onDataChanged(AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
+  public void
+  onDataChanged(AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
     Short requiredTableId = 0;
 
     Map<InstanceIdentifier<?>, DataObject> updated = change.getUpdatedData();
@@ -280,7 +285,8 @@ public class ODLController implements DataChangeListener,
 
         if (requiredTableId.equals(tableSure.getId())) {
           @SuppressWarnings("unchecked")
-          InstanceIdentifier<Table> tablePath = (InstanceIdentifier<Table>) updateItem.getKey();
+          InstanceIdentifier<Table> tablePath =
+              (InstanceIdentifier<Table>) updateItem.getKey();
           onSwitchAppeared(tablePath);
         }
       }
@@ -289,11 +295,6 @@ public class ODLController implements DataChangeListener,
 
   public void sendPacket(byte[] data, int inSwitch, int inPort, int... ports) {
     System.out.println("sendPacket Called in handler");
-
-    if (ports[0] == Integer.MAX_VALUE) {
-      flood(data, ingressPlaceHolder(inPort));
-      return;
-    }
 
     for (int i = 0; i < ports.length; i++) {
       NodeConnectorRef ncRef = PacketUtils.createNodeConnRef(
@@ -305,10 +306,11 @@ public class ODLController implements DataChangeListener,
 
   }
 
-  private Future<RpcResult<AddFlowOutput>> writeFlowToController(InstanceIdentifier<Node> nodeInstanceId,
-                                                                 InstanceIdentifier<Table> tableInstanceId,
-                                                                 InstanceIdentifier<Flow> flowPath,
-                                                                 Flow flow) {
+  private Future<RpcResult<AddFlowOutput>>
+  writeFlowToController(InstanceIdentifier<Node> nodeInstanceId,
+                        InstanceIdentifier<Table> tableInstanceId,
+                        InstanceIdentifier<Flow> flowPath,
+                        Flow flow) {
     final AddFlowInputBuilder builder = new AddFlowInputBuilder(flow);
     builder.setNode(new NodeRef(nodeInstanceId));
     builder.setFlowRef(new FlowRef(flowPath));
@@ -317,7 +319,8 @@ public class ODLController implements DataChangeListener,
     return fs.addFlow(builder.build());
   }
 
-  private InstanceIdentifier<Table> getTableInstanceId(InstanceIdentifier<Node> nodeId) {
+  private InstanceIdentifier<Table>
+  getTableInstanceId(InstanceIdentifier<Node> nodeId) {
     // get flow table key
     TableKey flowTableKey = new TableKey(flowTableId);
 
@@ -327,7 +330,8 @@ public class ODLController implements DataChangeListener,
         .build();
   }
 
-  private InstanceIdentifier<Flow> getFlowInstanceId(InstanceIdentifier<Table> tableId) {
+  private InstanceIdentifier<Flow>
+  getFlowInstanceId(InstanceIdentifier<Table> tableId) {
     // generate unique flow key
     FlowId flowId = new FlowId(String.valueOf(flowIdInc.getAndIncrement()));
     FlowKey flowKey = new FlowKey(flowId);
@@ -335,13 +339,15 @@ public class ODLController implements DataChangeListener,
   }
 
   private void installPuntRule(Rule rule, int outSwitch) {
-     /* TODO: add match. */
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
     InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
     Future<RpcResult<AddFlowOutput>> result;
-    result = writeFlowToController(this.nodePath, tableId, flowId,
-      FlowUtils.createPuntAllFlow(this.flowTableId, rule.priority).build());
+    Match m = matchForRule(rule);
+    Flow flow =
+        FlowUtils.createPuntFlow(this.flowTableId, rule.priority, m)
+        .build();
+    result = writeFlowToController(this.nodePath, tableId, flowId, flow);
   }
 
   public Match matchForRule(Rule rule) {
@@ -410,48 +416,23 @@ public class ODLController implements DataChangeListener,
     for (Rule rule : rules) {
       Action a = rule.action;
       if (a instanceof ToPorts) {
-        int[] outPorts = ((ToPorts)a).portIDs;
-        for (int i = 0; i < outSwitches.length; i++) {
-          installToPortRule(rule, outSwitches[i], outPorts);
+        int[] outPorts = ((ToPorts) a).portIDs;
+        for (int sw : outSwitches) { 
+          installToPortRule(rule, sw, outPorts);
         }
       } else if (a instanceof Drop) {
         int[] outPorts = new int[0];
-        for (int i = 0; i < outSwitches.length; i++) {
-          installToPortRule(rule, outSwitches[i], outPorts);
+        for (int sw : outSwitches) { 
+          installToPortRule(rule, sw, outPorts);
+        }
+      } else if (a instanceof Punt) {
+        for (int sw : outSwitches) {
+          installPuntRule(rule, sw);
         }
       } else {
         throw new IllegalArgumentException("unknown rule type: " + rule);
       }
-      /*
-      for (Action action : rule.actions) {
-
-        if (false) { //action instanceof Drop) {
-          for (int i = 0; i < outSwitches.length; i++)
-            installDropRule(rule, outSwitches[i]);
-
-        } else if (false) { //action instanceof Punt) {
-          for (int i = 0; i < outSwitches.length; i++)
-            installPuntRule(rule, outSwitches[i]);
-
-        } else if (action instanceof ToPort) {
-          int outPort = ((ToPort)action).portID;
-          for (int i = 0; i < outSwitches.length; i++)
-            installToPortRule(rule, outSwitches[i], outPort);
-
-        } else {
-          throw new IllegalArgumentException("unknown rule type: " + rule);
-        }
-      }
-      */
     }
-  }
-
-  private void flood(byte[] payload, NodeConnectorRef ingress) {
-    NodeConnectorKey nodeConnectorKey = new NodeConnectorKey(nodeConnectorId("0xfffffffb"));
-    InstanceIdentifier<?> nodeConnectorPath = InstanceIdentifierUtils.createNodeConnectorPath(nodePath, nodeConnectorKey);
-    NodeConnectorRef egressConnectorRef = new NodeConnectorRef(nodeConnectorPath);
-
-    sendPacketOut(payload, ingress, egressConnectorRef);
   }
 
   private NodeConnectorId nodeConnectorId(String connectorId) {
@@ -460,8 +441,10 @@ public class ODLController implements DataChangeListener,
     return new NodeConnectorId(stringId.toString());
   }
 
-  private void sendPacketOut(byte[] payload, NodeConnectorRef ingress, NodeConnectorRef egress) {
-    InstanceIdentifier<Node> egressNodePath = InstanceIdentifierUtils.getNodePath(egress.getValue());
+  private void
+  sendPacketOut(byte[] payload, NodeConnectorRef ingress, NodeConnectorRef egress) {
+    InstanceIdentifier<Node> egressNodePath =
+        InstanceIdentifierUtils.getNodePath(egress.getValue());
     TransmitPacketInput input = new TransmitPacketInputBuilder()
       .setPayload(payload)
       .setNode(new NodeRef(egressNodePath))

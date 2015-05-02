@@ -48,62 +48,14 @@ public class FlowUtils {
   /**
    * @param tableId
    * @param priority
-   * @return {@link FlowBuilder} dropping all packets
-   */
-  public static FlowBuilder createDropAllFlow(Short tableId, int priority) {
-
-    FlowBuilder dropAll = new FlowBuilder()
-      .setTableId(tableId)
-      .setFlowName("dropall");
-
-    dropAll.setId(new FlowId(Long.toString(dropAll.hashCode())));
-
-    Match match = new MatchBuilder().build();
-
-    Action dropAllAction = new ActionBuilder()
-      .setOrder(0)
-      .setAction(new DropActionCaseBuilder().build())
-      .build();
-
-    ApplyActions applyActions = new ApplyActionsBuilder()
-      .setAction(ImmutableList.of(dropAllAction))
-      .build();
-
-    Instruction applyActionsInstruction = new InstructionBuilder()
-      .setOrder(0)
-      .setInstruction(new ApplyActionsCaseBuilder()
-      .setApplyActions(applyActions)
-      .build())
-      .build();
-
-    dropAll
-      .setMatch(match)
-      .setInstructions(new InstructionsBuilder()
-         .setInstruction(ImmutableList.of(applyActionsInstruction))
-         .build())
-      .setPriority(priority)
-      .setBufferId(0xffffffffL)
-      .setHardTimeout(0)
-      .setIdleTimeout(0)
-      .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
-      .setFlags(new FlowModFlags(false, false, false, false, false));
-
-    return dropAll;
-  }
-
-  /**
-   * @param tableId
-   * @param priority
    * @return {@link FlowBuilder} forwarding all packets to controller port
    */
-  public static FlowBuilder createPuntAllFlow(Short tableId, int priority) {
+  public static FlowBuilder createPuntFlow(Short tableId, int priority, Match match) {
     FlowBuilder puntAll = new FlowBuilder()
       .setTableId(tableId)
       .setFlowName("puntall");
 
     puntAll.setId(new FlowId(Long.toString(puntAll.hashCode())));
-
-    Match match = new MatchBuilder().build();
 
     OutputActionBuilder output = new OutputActionBuilder();
     output.setMaxLength(Integer.valueOf(0xffff));
