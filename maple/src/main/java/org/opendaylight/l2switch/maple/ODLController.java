@@ -143,7 +143,7 @@ public class ODLController implements DataChangeListener,
     this.portToNodeConnectorRef.remove(portNum);
     this.maple.portDown(portNum);
 
-    System.out.println("NodeConnectorRef " + notification.getNodeConnectorRef());
+    LOG.info("NodeConnectorRef " + notification.getNodeConnectorRef());
   }
 
   @Override
@@ -163,17 +163,17 @@ public class ODLController implements DataChangeListener,
     this.portToNodeConnectorRef.put(portNum, ncr);
     this.maple.portUp(portNum);
 
-    System.out.println("NodeConnectorRef " + notification.getNodeConnectorRef());
+    LOG.info("NodeConnectorRef " + notification.getNodeConnectorRef());
   }
 
   @Override
   public void onNodeRemoved(NodeRemoved notification) {
-    System.out.println("NodeRef " + notification.getNodeRef());
+    LOG.info("NodeRef " + notification.getNodeRef());
   }
 
   @Override
   public void onNodeUpdated(NodeUpdated notification) {
-    System.out.println("NodeRef " + notification.getNodeRef());
+    LOG.info("NodeRef " + notification.getNodeRef());
   }
 
   @Override
@@ -210,7 +210,7 @@ public class ODLController implements DataChangeListener,
 
     this.portToMacAddress.put(portNum, srcMac);
 
-    System.out.println("Mapping portNum "+portNum+" to NodeConnectorRef. ");
+    LOG.info("Mapping portNum "+portNum+" to NodeConnectorRef. ");
     synchronized(this) {
       this.maple.handlePacket(data, switchNum, portNum);
     }
@@ -426,7 +426,7 @@ public class ODLController implements DataChangeListener,
     for (int i = 0; i < outPorts.length; i++) {
       dstPorts[i] = this.portToNodeConnectorRef.get(outPorts[i]);
       if (dstPorts[i] == null) {
-        System.out.println("!!!!!!!! WARNING - NOT INSTALLING RULE: " + rule + "!!!!!!!!!!!!!!");
+        LOG.info("!!!!!!!! WARNING - NOT INSTALLING RULE: " + rule + "!!!!!!!!!!!!!!");
         return;
       }
     }
@@ -484,7 +484,7 @@ public class ODLController implements DataChangeListener,
     for (int i = 0; i < outPorts.length; i++) {
       dstPorts[i] = this.portToNodeConnectorRef.get(outPorts[i]);
       if (dstPorts[i] == null) {
-        System.out.println("!!!!!!!! WARNING - NOT INSTALLING RULE: " + rule + "!!!!!!!!!!!!!!");
+        LOG.info("!!!!!!!! WARNING - NOT INSTALLING RULE: " + rule + "!!!!!!!!!!!!!!");
         return;
       }
     }
