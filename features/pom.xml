@@ -10,7 +10,7 @@
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>features-l2switch</artifactId>
+  <artifactId>features-maple</artifactId>
   <packaging>jar</packaging>
   <name>${project.artifactId}</name>
   <description> <!-- Provide a Description it will be visible in the shell CLI--> </description>
