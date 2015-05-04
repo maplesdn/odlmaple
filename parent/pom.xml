@@ -19,10 +19,8 @@
     <mdsal.version>1.2.0-SNAPSHOT</mdsal.version>
     <yangtools.version>0.7.0-SNAPSHOT</yangtools.version>
     <ietf-yang-types.version>2010.09.24.7-SNAPSHOT</ietf-yang-types.version>
-    <jung2.version>2.0.1</jung2.version>
     <config.version>0.3.0-SNAPSHOT</config.version>
     <openflow.plugin.version>0.1.0-SNAPSHOT</openflow.plugin.version>
-    <dlux.version>0.2.0-SNAPSHOT</dlux.version>
     <bundle.plugin.version>2.4.0</bundle.plugin.version>
     <config.configfile.directory>etc/opendaylight/karaf</config.configfile.directory>
   </properties>
@@ -69,11 +67,6 @@
         <groupId>org.opendaylight.openflowplugin.model</groupId>
         <artifactId>model-flow-service</artifactId>
         <version>${openflow.plugin.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.opendaylight.controller.thirdparty</groupId>
-        <artifactId>net.sf.jung2</artifactId>
-        <version>${jung2.version}</version>
       </dependency>
       <dependency>
         <groupId>org.opendaylight.controller</groupId>
