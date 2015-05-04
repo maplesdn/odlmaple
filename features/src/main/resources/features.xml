@@ -12,7 +12,6 @@
   </feature>
   <feature name='odl-maple' description="OpenDaylight :: Maple"
 	   version='${project.version}'>
-    <feature version="${mdsal.version}">odl-restconf</feature>
     <feature
 	version="${openflow.plugin.version}">odl-openflowplugin-flow-services</feature>
     <feature version="${openflow.plugin.version}">odl-openflowplugin-southbound</feature>
