@@ -17,6 +17,5 @@
     <feature version="${openflow.plugin.version}">odl-openflowplugin-southbound</feature>
     <bundle>mvn:org.opendaylight.l2switch.maple/maple/0.2.0-SNAPSHOT</bundle>
     <bundle>mvn:org.maple/core/1.0-SNAPSHOT</bundle>
-    <bundle>mvn:com.google.guava/guava/18.0</bundle>
   </feature>
 </features>
