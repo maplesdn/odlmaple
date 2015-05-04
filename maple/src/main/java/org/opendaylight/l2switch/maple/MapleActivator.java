@@ -90,10 +90,7 @@ public class MapleActivator extends AbstractBindingAwareConsumer implements Auto
       this.controller,
       DataChangeScope.SUBTREE);
 
-    /* Add listener for link changes. See:
-     * ./loopremover/implementation/src/main/java/org/opendaylight/l2switch/loopremover/topology/TopologyLinkDataChangeHandler.java
-     * ./hosttracker/implementation/src/main/java/org/opendaylight/l2switch/hosttracker/plugin/internal/HostTrackerImpl.java
-     */
+    /* Add listener for link changes. */
     this.dataChangeListenerReg = db.registerDataChangeListener(
       LogicalDatastoreType.OPERATIONAL,
       InstanceIdentifier.builder(NetworkTopology.class)
