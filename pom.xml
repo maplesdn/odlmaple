@@ -19,10 +19,10 @@
       <nexusproxy>http://nexus.opendaylight.org/content</nexusproxy>
   </properties>
   <scm>
-    <connection>scm:git:ssh://git.opendaylight.org:29418/l2switch.git</connection>
-    <developerConnection>scm:git:ssh://git.opendaylight.org:29418/l2switch.git</developerConnection>
+    <connection>scm:git:git://github.com/maplesdn/odlmaple.git</connection>
+    <developerConnection>scm:git:git@github.com:maplesdn/odlmaple.git</developerConnection>
+    <url>https://github.com/maplesdn/odlmaple.git</url>
     <tag>HEAD</tag>
-    <url>https://wiki.opendaylight.org/view/L2_Switch:Main</url>
   </scm>
   <distributionManagement>
     <!-- OpenDayLight Released artifact -->
