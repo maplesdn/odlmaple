@@ -7,7 +7,7 @@
     <artifactId>odlparent</artifactId>
     <version>1.5.0-SNAPSHOT</version>
   </parent>
-  <groupId>org.opendaylight.l2switch</groupId>
+  <groupId>org.opendaylight.maple</groupId>
   <artifactId>maple-parent</artifactId>
   <version>0.2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
@@ -348,7 +348,7 @@
             <artifactId>jacoco-maven-plugin</artifactId>
             <configuration>
               <includes>
-                <include>org.opendaylight.l2switch.*</include>
+                <include>org.opendaylight.maple.*</include>
               </includes>
             </configuration>
             <executions>
