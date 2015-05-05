@@ -1,4 +1,4 @@
-package org.opendaylight.l2switch.maple;
+package org.opendaylight.maple;
 
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.Table;

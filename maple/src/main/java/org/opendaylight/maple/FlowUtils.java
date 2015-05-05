@@ -1,4 +1,4 @@
-package org.opendaylight.l2switch.maple;
+package org.opendaylight.maple;
 
 import java.util.ArrayList;
 import java.util.List;

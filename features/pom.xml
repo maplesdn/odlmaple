@@ -42,7 +42,7 @@
 
     <!-- bundles used by features directly -->
     <dependency>
-      <groupId>org.opendaylight.l2switch.maple</groupId>
+      <groupId>org.opendaylight.maple</groupId>
       <artifactId>maple</artifactId>
       <version>0.2.0-SNAPSHOT</version>
     </dependency>
