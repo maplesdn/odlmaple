@@ -248,10 +248,4 @@
       </plugin>
     </plugins>
   </build>
-  <scm>
-    <connection>scm:git:ssh://git.opendaylight.org:29418/l2switch.git</connection>
-    <developerConnection>scm:git:ssh://git.opendaylight.org:29418/l2switch.git</developerConnection>
-    <tag>HEAD</tag>
-    <url>https://git.opendaylight.org/gerrit/gitweb?p=l2switch.git;a=summary</url>
-  </scm>
 </project>
