@@ -10,6 +10,8 @@ package org.opendaylight.maple;
 
 
 import org.maple.core.Controller;
+import org.maple.core.Switch;
+import org.maple.core.SwitchPort;
 import org.maple.core.MapleSystem;
 import org.maple.core.Rule;
 import org.maple.core.ToPorts;
@@ -100,8 +102,8 @@ public class ODLController implements DataChangeListener,
   private InstanceIdentifier<Node> nodePath;
   private InstanceIdentifier<Table> tablePath;
 
-  private Map<Integer, NodeConnectorRef> portToNodeConnectorRef;
-  private Map<Integer, MacAddress> portToMacAddress;
+  private Map<SwitchPort, NodeConnectorRef> portToNodeConnectorRef;
+  private Map<SwitchPort, MacAddress> portToMacAddress;
 
   private static final String LOCAL_PORT_STR = "LOCAL";
 
@@ -128,19 +130,20 @@ public class ODLController implements DataChangeListener,
   @Override
   public void onNodeConnectorRemoved(NodeConnectorRemoved notification) {
     NodeConnectorRef ncr = notification.getNodeConnectorRef();
-    String portID = ncr
+    String switchPortStr = ncr
       .getValue()
       .firstIdentifierOf(NodeConnector.class)
       .firstKeyOf(NodeConnector.class, NodeConnectorKey.class)
       .getId()
       .getValue();
 
-    if (portID.contains(LOCAL_PORT_STR))
+    if (switchPortStr.contains(LOCAL_PORT_STR))
       return;
 
-    int portNum = portStrToInt(portID);
-    this.portToNodeConnectorRef.remove(portNum);
-    this.maple.portDown(portNum);
+    SwitchPort sp = new SwitchPort(getSwitch(switchPortStr),
+                                   getPort(switchPortStr));
+    this.portToNodeConnectorRef.remove(sp);
+    this.maple.portDown(sp);
 
     LOG.info("NodeConnectorRef " + notification.getNodeConnectorRef());
   }
@@ -148,19 +151,20 @@ public class ODLController implements DataChangeListener,
   @Override
   public void onNodeConnectorUpdated(NodeConnectorUpdated notification) {
     NodeConnectorRef ncr = notification.getNodeConnectorRef();
-    String portID = ncr
+    String switchPortStr = ncr
       .getValue()
       .firstIdentifierOf(NodeConnector.class)
       .firstKeyOf(NodeConnector.class, NodeConnectorKey.class)
       .getId()
       .getValue();
 
-    if (portID.contains(LOCAL_PORT_STR))
+    if (switchPortStr.contains(LOCAL_PORT_STR))
       return;
 
-    int portNum = portStrToInt(portID);
-    this.portToNodeConnectorRef.put(portNum, ncr);
-    this.maple.portUp(portNum);
+    SwitchPort sp = new SwitchPort(getSwitch(switchPortStr),
+                                   getPort(switchPortStr));
+    this.portToNodeConnectorRef.put(sp, ncr);
+    this.maple.portUp(sp);
 
     LOG.info("NodeConnectorRef " + notification.getNodeConnectorRef());
   }
@@ -194,35 +198,37 @@ public class ODLController implements DataChangeListener,
     if (ingress == null)
       return;
 
-    String portID = ingress
+    String switchPortStr = ingress
       .getValue()
       .firstIdentifierOf(NodeConnector.class)
       .firstKeyOf(NodeConnector.class, NodeConnectorKey.class)
       .getId()
       .getValue();
 
-    int switchNum = switchStrToInt(portID);
-    int portNum = portStrToInt(portID);
-
     MacAddress dstMac = PacketUtils.rawMacToMac(dstMacRaw);
     MacAddress srcMac = PacketUtils.rawMacToMac(srcMacRaw);
 
-    this.portToMacAddress.put(portNum, srcMac);
+    long switchNum = getSwitch(switchPortStr);
+    int portNum = getPort(switchPortStr);
+    SwitchPort sp = new SwitchPort(switchNum, portNum);
+    Switch s = new Switch(switchNum);
 
-    LOG.info("Mapping portNum "+portNum+" to NodeConnectorRef. ");
+    this.portToMacAddress.put(sp, srcMac);
+
+    LOG.info("Mapping portNum " + portNum + " to NodeConnectorRef.");
     synchronized(this) {
-      this.maple.handlePacket(data, switchNum, portNum);
+      this.maple.handlePacket(data, s, sp);
     }
   }
 
-  private static int switchStrToInt(String switchStr) {
-    return Integer.parseInt(switchStr.substring(
-      switchStr.indexOf(':') + 1, switchStr.lastIndexOf(':')));
+  private static long getSwitch(String switchPortStr) {
+    return Long.valueOf(switchPortStr.substring(
+      switchPortStr.indexOf(':') + 1, switchPortStr.lastIndexOf(':')));
   }
 
-  private static int portStrToInt(String portStr) {
-    return Integer.parseInt(portStr.substring(
-      portStr.lastIndexOf(':') + 1));
+  private static int getPort(String switchPortStr) {
+    return Integer.parseInt(switchPortStr.substring(
+      switchPortStr.lastIndexOf(':') + 1));
   }
 
   /**
@@ -248,11 +254,11 @@ public class ODLController implements DataChangeListener,
     LOG.debug("stop() <--");
   }
  
-  private NodeConnectorRef ingressPlaceHolder(int portNum) {
-    if (this.portToNodeConnectorRef.containsKey(portNum))
-      return this.portToNodeConnectorRef.get(portNum);
+  private NodeConnectorRef ingressPlaceHolder(SwitchPort sp) {
+    if (this.portToNodeConnectorRef.containsKey(sp.getPort()))
+      return this.portToNodeConnectorRef.get(sp.getPort());
     else {
-      String msg = "portNum " + portNum + " does not exist in map";
+      String msg = "portNum " + sp.getPort() + " does not exist in map";
       throw new IllegalArgumentException(msg);
     }
   }
@@ -307,7 +313,7 @@ public class ODLController implements DataChangeListener,
   }
 
   @Override
-  public void sendPacket(byte[] data, int inSwitch, int inPort, int... ports) {
+  public void sendPacket(byte[] data, Switch inSwitch, SwitchPort inPort, SwitchPort... ports) {
     for (int i = 0; i < ports.length; i++) {
       NodeConnectorRef ncRef = PacketUtils.createNodeConnRef(
         nodePath,
@@ -407,7 +413,7 @@ public class ODLController implements DataChangeListener,
     return m;
   }
 
-  private void installPuntRule(Rule rule, int outSwitch) {
+  private void installPuntRule(Rule rule, Switch outSwitch) {
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
     InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
@@ -419,7 +425,7 @@ public class ODLController implements DataChangeListener,
     result = addFlow(this.nodePath, tableId, flowId, flow);
   }
 
-  private void installToPortRule(Rule rule, int outSwitch, int[] outPorts) {
+  private void installToPortRule(Rule rule, Switch outSwitch, SwitchPort[] outPorts) {
 
     NodeConnectorRef dstPorts[] = new NodeConnectorRef[outPorts.length];
     for (int i = 0; i < outPorts.length; i++) {
@@ -442,22 +448,22 @@ public class ODLController implements DataChangeListener,
   }
 
   @Override
-  public void installRules(LinkedList<Rule> rules, int... outSwitches) {
+  public void installRules(HashSet<Rule> rules, Switch... outSwitches) {
     for (Rule rule : rules) {
       Action a = rule.action;
       if (a instanceof ToPorts) {
-        int[] outPorts = ((ToPorts) a).portIDs;
-        for (int sw : outSwitches) {
-          installToPortRule(rule, sw, outPorts);
+        SwitchPort[] outPorts = ((ToPorts) a).portIDs;
+        for (Switch s : outSwitches) {
+          installToPortRule(rule, s, outPorts);
         }
       } else if (a instanceof Drop) {
-        int[] outPorts = new int[0];
-        for (int sw : outSwitches) {
-          installToPortRule(rule, sw, outPorts);
+        SwitchPort[] outPorts = new SwitchPort[0];
+        for (Switch s : outSwitches) {
+          installToPortRule(rule, s, outPorts);
         }
       } else if (a instanceof Punt) {
-        for (int sw : outSwitches) {
-          installPuntRule(rule, sw);
+        for (Switch s : outSwitches) {
+          installPuntRule(rule, s);
         }
       } else {
         throw new IllegalArgumentException("unknown rule type: " + rule);
@@ -465,7 +471,7 @@ public class ODLController implements DataChangeListener,
     }
   }
 
-  private void removePuntRule(Rule rule, int outSwitch) {
+  private void removePuntRule(Rule rule, Switch outSwitch) {
     InstanceIdentifier<Table> tableId = getTableInstanceId(this.nodePath);
     InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
@@ -477,7 +483,7 @@ public class ODLController implements DataChangeListener,
     result = removeFlow(this.nodePath, tableId, flowId, flow);
   }
 
-  private void removeToPortRule(Rule rule, int outSwitch, int[] outPorts) {
+  private void removeToPortRule(Rule rule, Switch outSwitch, SwitchPort[] outPorts) {
 
     NodeConnectorRef dstPorts[] = new NodeConnectorRef[outPorts.length];
     for (int i = 0; i < outPorts.length; i++) {
@@ -500,22 +506,22 @@ public class ODLController implements DataChangeListener,
   }
 
   @Override
-  public void deleteRules(LinkedList<Rule> rules, int... outSwitches) {
+  public void deleteRules(HashSet<Rule> rules, Switch... outSwitches) {
     for (Rule rule : rules) {
       Action a = rule.action;
       if (a instanceof ToPorts) {
-        int[] outPorts = ((ToPorts) a).portIDs;
-        for (int sw : outSwitches) {
-          removeToPortRule(rule, sw, outPorts);
+        SwitchPort[] outPorts = ((ToPorts) a).portIDs;
+        for (Switch s : outSwitches) {
+          removeToPortRule(rule, s, outPorts);
         }
       } else if (a instanceof Drop) {
-        int[] outPorts = new int[0];
-        for (int sw : outSwitches) {
-          removeToPortRule(rule, sw, outPorts);
+        SwitchPort[] outPorts = new SwitchPort[0];
+        for (Switch s : outSwitches) {
+          removeToPortRule(rule, s, outPorts);
         }
       } else if (a instanceof Punt) {
-        for (int sw : outSwitches) {
-          removePuntRule(rule, sw);
+        for (Switch s : outSwitches) {
+          removePuntRule(rule, s);
         }
       } else {
         throw new IllegalArgumentException("unknown rule type: " + rule);
